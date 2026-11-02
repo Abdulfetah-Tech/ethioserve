@@ -12,13 +12,14 @@ import { ProviderReview } from '../../core/models/marketplace.models';
 import { RequestDetail } from '../../core/models/request.models';
 import { RequestPhotos } from '../../shared/request-photos';
 import { hasAppointmentSection } from '../../shared/appointment-format';
+import { CustomerPaymentBox } from './customer-payment-box';
 import { CustomerAppointmentBox } from './customer-appointment-box';
 import { RequestQuotes } from './request-quotes';
 import { budgetText, canCancel, canEdit, nextStepText, statusBadge, statusLabel, whenText } from './request-status';
 
 @Component({
   selector: 'app-request-detail',
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, RequestPhotos, RequestQuotes, CustomerAppointmentBox],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, RequestPhotos, RequestQuotes, CustomerAppointmentBox, CustomerPaymentBox],
   template: `
     @let s = detail();
     @if (s.kind === 'loading') {
@@ -81,6 +82,11 @@ import { budgetText, canCancel, canEdit, nextStepText, statusBadge, statusLabel,
         }
 
         @if (s.data.status === 'Completed') {
+          <section class="card" aria-labelledby="payment-heading">
+            <h2 id="payment-heading">Payment</h2>
+            <app-customer-payment-box [requestId]="s.data.id" [requestStatus]="s.data.status" />
+          </section>
+
           <section class="card" aria-labelledby="review-heading">
             <h2 id="review-heading">Rate this completed service</h2>
             @if (submittedReview(); as review) {

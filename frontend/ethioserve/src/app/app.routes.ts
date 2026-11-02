@@ -127,6 +127,18 @@ export const routes: Routes = [
     loadComponent: () => import('./features/customer/request-detail').then((m) => m.RequestDetailPage),
   },
   {
+    path: 'customer/payments',
+    title: 'Payments | EthioServe',
+    canActivate: [roleGuard(Roles.Customer)],
+    loadComponent: () => import('./features/customer/customer-payments').then((m) => m.CustomerPayments),
+  },
+  {
+    path: 'pay/:id',
+    title: 'Checkout | EthioServe',
+    canActivate: [roleGuard(Roles.Customer)],
+    loadComponent: () => import('./features/customer/payment-checkout').then((m) => m.PaymentCheckout),
+  },
+  {
     path: 'provider/requests',
     title: 'Customer requests | EthioServe',
     canActivate: [roleGuard(Roles.Provider)],
@@ -161,6 +173,12 @@ export const routes: Routes = [
     title: 'Appointment | EthioServe',
     canActivate: [roleGuard(Roles.Provider)],
     loadComponent: () => import('./features/provider/provider-appointment-detail').then((m) => m.ProviderAppointmentDetail),
+  },
+  {
+    path: 'provider/payments',
+    title: 'Payments | EthioServe',
+    canActivate: [roleGuard(Roles.Provider)],
+    loadComponent: () => import('./features/provider/provider-payments').then((m) => m.ProviderPayments),
   },
   {
     path: 'customer/appointments',

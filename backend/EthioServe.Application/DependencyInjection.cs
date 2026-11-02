@@ -40,7 +40,8 @@ public static class DependencyInjection
         services.AddScoped<IReviewService, ReviewService>();
         services.AddScoped<IMessageService, MessageService>();
         services.AddScoped<IFavoriteService, FavoriteService>();
-        services.AddScoped<IPaymentService, PaymentService>();
+        services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
+        services.AddScoped<IProviderPaymentService, ProviderPaymentService>();
         services.AddScoped<IProviderDocumentService, ProviderDocumentService>();
         services.AddScoped<INotifier, Notifier>();
         services.AddScoped<INotificationService, NotificationService>();

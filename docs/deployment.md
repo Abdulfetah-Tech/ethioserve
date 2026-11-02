@@ -14,6 +14,8 @@
 
 The Compose stack sets `Database__ApplyMigrationsOnStartup=true`. This is suitable for its one API container: it applies EF migrations and idempotently adds required roles, Ethiopian locations and catalog records. It does not create a production administrator or demo users.
 
+The mock payment gateway is enabled by default only in Development and Testing. It simulates success, decline, and cancellation; it does not move money or collect card or mobile-wallet details. Production always disables the mock gateway, even if `Payments__AllowMock=true` is supplied. Chapa, Telebirr, and provider payouts are not integrated yet.
+
 ## AWS target architecture
 
 - **Frontend:** static Angular assets in S3 + CloudFront, or a containerized frontend service when same-origin reverse proxying is required.

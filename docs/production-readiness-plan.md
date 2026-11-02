@@ -17,6 +17,7 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 - JWT authentication, rotating hashed refresh tokens, lockout, password reset, rate limiting, role enforcement, RFC 7807 errors and structured logging.
 - Public provider discovery with service and location filtering; provider self-service; provider review and verification by administrators.
 - Customer request lifecycle, safe image attachments, provider quotations, appointment scheduling, notifications and authenticated SignalR notification delivery.
+- Completed-job payments with customer checkout, idempotent attempts, provider earnings, audit/notification coverage, and a development-only simulated gateway. No real money is processed.
 - EF Core migrations, database constraints, optimistic concurrency and audit records for sensitive actions.
 - Dockerfiles, Compose health checks, GitHub Actions and broad unit/integration coverage.
 
@@ -24,7 +25,7 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 
 1. **Deployment correctness (in progress):** Compose now supplies the required JWT signing key, initializes an empty database and forwards `/api` and `/hubs` to the private API container. A full container startup check remains.
 2. **Operations:** document production environment variables, migrations, backups, AWS ECS/Fargate/RDS topology, secrets management, logs and TLS termination.
-3. **Marketplace completeness:** completed-job reviews now have customer submission, public display, rating aggregation, notification, ownership checks and audit coverage. Real payment providers, direct customer-provider messaging, favorites, portfolios, review moderation UI and a configurable availability calendar are not complete product flows.
+3. **Marketplace completeness:** completed-job reviews and the mock payment workflow now have customer/provider UI, ownership checks, notifications and audit coverage. Real payment providers and payouts, direct customer-provider messaging, portfolios, review moderation UI and a configurable availability calendar are not complete product flows.
 4. **Authentication hardening:** add verified-email and optional MFA design, asynchronous transactional email, and retention/cleanup for expired reset and refresh tokens.
 5. **Observability:** define structured operational events, health/readiness probes for deployed infrastructure and alerting dashboards.
 
@@ -38,4 +39,6 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 - [ ] Add production/AWS deployment runbook.
 - [ ] Implement the next complete marketplace workflow, beginning with reviews after confirming its intended moderation rules.
 - [x] Implement the completed-job review workflow through API, UI, notifications and automated tests.
+- [x] Implement customer payment checkout/history and provider payment/earnings using a mock gateway that is disabled in Production.
+- [x] Add payment workflow integration and frontend API coverage.
 - [ ] Add workflow-level integration and frontend coverage for each new capability.

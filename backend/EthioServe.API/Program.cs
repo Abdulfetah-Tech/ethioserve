@@ -32,6 +32,10 @@ builder.Host.UseSerilog((context, services, loggerConfiguration) => loggerConfig
 // Layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<IPaymentSettings>(PaymentSettings.Resolve(
+    builder.Configuration.GetValue<bool?>("Payments:AllowMock"),
+    builder.Environment.EnvironmentName));
+builder.Services.AddSingleton<IPaymentGateway, MockPaymentGateway>();
 
 // Web
 builder.Services.AddControllers()

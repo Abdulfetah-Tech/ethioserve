@@ -12,6 +12,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       <a routerLink="/provider/requests" routerLinkActive="active" ariaCurrentWhenActive="page">Requests</a>
       <a routerLink="/provider/quotes" routerLinkActive="active" ariaCurrentWhenActive="page">My quotes</a>
       <a routerLink="/provider/appointments" routerLinkActive="active" ariaCurrentWhenActive="page">Appointments</a>
+      <a routerLink="/provider/payments" routerLinkActive="active" ariaCurrentWhenActive="page">Payments</a>
       <a routerLink="/provider/profile" routerLinkActive="active" ariaCurrentWhenActive="page">Profile</a>
       <a routerLink="/provider/services" routerLinkActive="active" ariaCurrentWhenActive="page">Services</a>
     </nav>

@@ -32,6 +32,7 @@ public sealed class GlobalExceptionHandler(
             NotFoundException => (StatusCodes.Status404NotFound, "Resource not found"),
             ForbiddenException => (StatusCodes.Status403Forbidden, "Access denied"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
+            ServiceUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Service unavailable"),
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflict"),
             // Safety net: the database's unique indexes decided a race that the application checks could not.
             // Two bookings racing for the same slot can deadlock inside PostgreSQL. The loser is simply told to try again.
