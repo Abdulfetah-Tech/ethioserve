@@ -14,7 +14,7 @@ public sealed class PaymentApiTests(ApiFactory factory)
     {
         using var world = await _jobs.NewWorldAsync();
         var requestId = await _jobs.AcceptedRequestAsync(world);
-        await PaymentScenario.CompleteRequestAsync(factory, requestId);
+        await PaymentScenario.CompleteJobAsync(factory, world.Customer.Http, world.Provider.Http, requestId);
 
         var (created, pending) = await PaymentScenario.StartAsync(world.Customer.Http, requestId, "payment_1234");
 
@@ -94,7 +94,7 @@ public sealed class PaymentApiTests(ApiFactory factory)
         var (tooEarly, _) = await PaymentScenario.StartAsync(world.Customer.Http, requestId, "payment_1234");
         Assert.Equal(HttpStatusCode.Conflict, tooEarly);
 
-        await PaymentScenario.CompleteRequestAsync(factory, requestId);
+        await PaymentScenario.CompleteJobAsync(factory, world.Customer.Http, world.Provider.Http, requestId);
         var (missingKey, problem) = await PaymentScenario.StartAsync(world.Customer.Http, requestId, null);
 
         Assert.Equal(HttpStatusCode.BadRequest, missingKey);

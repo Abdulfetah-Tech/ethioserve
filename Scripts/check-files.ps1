@@ -82,7 +82,9 @@ $batches['8.1'] = @(
     'core\models\payment.models.ts', 'core\api\payment.api.ts', 'core\api\payment.api.spec.ts',
     'shared\payment-format.ts', 'shared\payment-format.spec.ts',
     'features\customer\customer-payment-box.ts', 'features\customer\customer-payments.ts',
-    'features\customer\payment-checkout.ts', 'features\provider\provider-payments.ts'
+    'features\customer\customer-payment-box.spec.ts',
+    'features\customer\payment-checkout.ts', 'features\customer\payment-checkout.spec.ts',
+    'features\provider\provider-payments.ts', 'features\provider\provider-payments.spec.ts'
 )
 $names = @($batches.Keys)
 

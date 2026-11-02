@@ -41,4 +41,5 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 - [x] Implement the completed-job review workflow through API, UI, notifications and automated tests.
 - [x] Implement customer payment checkout/history and provider payment/earnings using a mock gateway that is disabled in Production.
 - [x] Add payment workflow integration and frontend API coverage.
+- [x] Exercise job completion through the appointment API before payment, and add customer checkout/provider earnings UI tests.
 - [ ] Add workflow-level integration and frontend coverage for each new capability.

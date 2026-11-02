@@ -12,7 +12,7 @@ public sealed class PaymentConcurrencyTests(ApiFactory factory)
         var jobs = new JobBuilder(factory);
         using var world = await jobs.NewWorldAsync();
         var requestId = await jobs.AcceptedRequestAsync(world);
-        await PaymentScenario.CompleteRequestAsync(factory, requestId);
+        await PaymentScenario.CompleteJobAsync(factory, world.Customer.Http, world.Provider.Http, requestId);
 
         var firstTask = PaymentScenario.StartAsync(world.Customer.Http, requestId, "parallel_1234");
         var secondTask = PaymentScenario.StartAsync(world.Customer.Http, requestId, "parallel_5678");
