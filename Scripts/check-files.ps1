@@ -86,6 +86,10 @@ $batches['8.1'] = @(
     'features\customer\payment-checkout.ts', 'features\customer\payment-checkout.spec.ts',
     'features\provider\provider-payments.ts', 'features\provider\provider-payments.spec.ts'
 )
+$batches['8.2'] = @(
+    'core\models\message.models.ts', 'core\api\message.api.ts', 'core\api\message.api.spec.ts',
+    'shared\request-messages.ts', 'shared\request-messages.spec.ts'
+)
 $names = @($batches.Keys)
 
 # Without -UpTo, the newest batch that has at least one file is the one being worked on.

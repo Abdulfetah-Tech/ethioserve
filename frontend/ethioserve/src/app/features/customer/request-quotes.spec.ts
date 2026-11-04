@@ -86,8 +86,29 @@ describe('RequestQuotes', () => {
       'Accepted',
     );
 
-    expect(element(fixture).querySelectorAll('button')).toHaveLength(0);
+    expect(element(fixture).querySelectorAll('button')).toHaveLength(2);
+    expect(button(fixture, 'Accept')).toBeUndefined();
+    expect(button(fixture, 'Decline')).toBeUndefined();
     expect(element(fixture).querySelector('a[href="tel:0911556677"]')).not.toBeNull();
+  });
+
+  it('opens the private conversation for only the selected provider quote', async () => {
+    const fixture = await render([quote('q1', 'Alpha Plumbing', 300), quote('q2', 'Beta Plumbing', 450)]);
+
+    button(fixture, 'Message provider')?.click();
+    await fixture.whenStable();
+
+    const messages = httpMock.expectOne(
+      (request) =>
+        request.url === '/api/requests/r1/messages' &&
+        request.params.get('providerId') === 'provider-q1' &&
+        request.params.get('pageSize') === '50',
+    );
+    messages.flush({ items: [], page: 1, pageSize: 50, totalCount: 0, totalPages: 0 });
+    await fixture.whenStable();
+
+    expect(element(fixture).textContent).toContain('Conversation with Alpha Plumbing');
+    expect(element(fixture).textContent).not.toContain('Conversation with Beta Plumbing');
   });
 
   it('asks for confirmation before accepting, then sends the request and tells the page', async () => {

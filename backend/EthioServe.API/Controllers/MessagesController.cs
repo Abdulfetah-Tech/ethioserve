@@ -14,10 +14,10 @@ public sealed class MessagesController(IMessageService messages) : ControllerBas
     [HttpGet]
     public async Task<ActionResult<PagedResult<MessageDto>>> List(
         Guid requestId, [FromQuery] MessageQuery query, CancellationToken ct) =>
-        Ok(await messages.ListAsync(requestId, query, ct));
+        Ok(await messages.ListAsync(requestId, query.ProviderId, query, ct));
 
     [HttpPost]
     public async Task<ActionResult<MessageDto>> Send(
         Guid requestId, SendMessageRequest request, CancellationToken ct) =>
-        Ok(await messages.SendAsync(requestId, request, ct));
+        Ok(await messages.SendAsync(requestId, request.ProviderId, request, ct));
 }

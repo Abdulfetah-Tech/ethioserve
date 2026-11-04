@@ -7,6 +7,7 @@ public sealed class SendMessageRequestValidator : AbstractValidator<SendMessageR
 {
     public SendMessageRequestValidator()
     {
+        RuleFor(x => x.ProviderId).NotEmpty();
         RuleFor(x => x.Body).NotEmpty().MaximumLength(RequestMessage.MaxBodyLength);
     }
 }

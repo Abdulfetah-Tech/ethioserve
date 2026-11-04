@@ -10,11 +10,12 @@ import { RequestStatus } from '../../core/models/request.models';
 import { EtbPipe } from '../../shared/etb.pipe';
 import { cheapestOpenId, durationText, expiryText, quoteStatusBadge, quoteStatusLabel } from '../../shared/quote-format';
 import { Rating } from '../../shared/rating';
+import { RequestMessages } from '../../shared/request-messages';
 
 /** The quotes on one of the customer's requests: compare them, accept one, or decline the rest. */
 @Component({
   selector: 'app-request-quotes',
-  imports: [RouterLink, EtbPipe, Rating],
+  imports: [RouterLink, EtbPipe, Rating, RequestMessages],
   template: `
     @let s = quotes();
     @if (s.kind === 'loading') {
@@ -68,6 +69,14 @@ import { Rating } from '../../shared/rating';
                   </td>
                   <td><span [class]="badge(q.status)">{{ label(q.status) }}</span></td>
                   <td>
+                    <button
+                      type="button"
+                      class="btn btn-secondary"
+                      [attr.aria-expanded]="conversationProviderId() === q.providerId"
+                      (click)="toggleConversation(q.providerId)"
+                    >
+                      {{ conversationProviderId() === q.providerId ? 'Close messages' : 'Message provider' }}
+                    </button>
                     @if (q.status === 'Pending' && decidable()) {
                       @if (accepting() === q.id) {
                         <p>
@@ -96,6 +105,17 @@ import { Rating } from '../../shared/rating';
                     }
                   </td>
                 </tr>
+                @if (conversationProviderId() === q.providerId) {
+                  <tr>
+                    <td colspan="6">
+                      <app-request-messages
+                        [requestId]="requestId()"
+                        [providerId]="q.providerId"
+                        [otherParticipantName]="q.providerName"
+                      />
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -122,6 +142,7 @@ export class RequestQuotes {
   protected readonly quotes = signal<LoadState<CustomerQuote[]>>(LOADING);
   protected readonly accepting = signal<string | null>(null);
   protected readonly declining = signal<string | null>(null);
+  protected readonly conversationProviderId = signal<string | null>(null);
   protected readonly busy = signal(false);
   protected readonly notice = signal<string | null>(null);
   protected readonly errorMessage = signal<string | null>(null);
@@ -158,6 +179,10 @@ export class RequestQuotes {
     this.declining.set(null);
     this.clearMessages();
     this.accepting.set(id);
+  }
+
+  protected toggleConversation(providerId: string): void {
+    this.conversationProviderId.update((current) => current === providerId ? null : providerId);
   }
 
   protected startDecline(id: string): void {

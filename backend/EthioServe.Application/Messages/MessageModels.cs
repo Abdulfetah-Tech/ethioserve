@@ -3,7 +3,7 @@ using EthioServe.Domain.Entities;
 
 namespace EthioServe.Application.Messages;
 
-public sealed record SendMessageRequest(string Body);
+public sealed record SendMessageRequest(Guid ProviderId, string Body);
 
 public sealed record MessageDto(
     Guid Id,
@@ -16,6 +16,8 @@ public sealed record MessageDto(
 /// <summary>Bound from the query string. Paging values are clamped by <see cref="Paging.Normalize"/>.</summary>
 public sealed class MessageQuery
 {
+    public Guid ProviderId { get; set; }
+
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = Paging.DefaultPageSize;
@@ -24,7 +26,9 @@ public sealed class MessageQuery
 /// <summary>Messages on a service request. Only the customer and the quoting provider can read or send them.</summary>
 public interface IMessageService
 {
-    Task<PagedResult<MessageDto>> ListAsync(Guid requestId, MessageQuery query, CancellationToken ct = default);
+    Task<PagedResult<MessageDto>> ListAsync(
+        Guid requestId, Guid providerId, MessageQuery query, CancellationToken ct = default);
 
-    Task<MessageDto> SendAsync(Guid requestId, SendMessageRequest request, CancellationToken ct = default);
+    Task<MessageDto> SendAsync(
+        Guid requestId, Guid providerId, SendMessageRequest request, CancellationToken ct = default);
 }
