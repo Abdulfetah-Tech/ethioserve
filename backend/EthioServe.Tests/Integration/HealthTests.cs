@@ -28,6 +28,17 @@ public sealed class HealthTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Readiness_endpoint_checks_database_health()
+    {
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/health/ready");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Healthy", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Responses_carry_baseline_security_headers()
     {
         using var client = factory.CreateClient();

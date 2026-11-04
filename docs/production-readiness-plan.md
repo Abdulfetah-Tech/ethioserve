@@ -26,8 +26,8 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 1. **Deployment correctness (complete):** Compose supplies the required JWT signing key, initializes an empty database, persists request uploads, avoids default production seed credentials and forwards `/api` and `/hubs` to the private API container. The isolated Compose startup and frontend proxy paths were validated.
 2. **Operations:** the deployment guide now documents production configuration, migration and rollout steps, backups, AWS ECS/Fargate/RDS/EFS topology, secrets management, logs and TLS termination. Production infrastructure and restore procedures still need live verification.
 3. **Marketplace completeness:** completed-job reviews and the mock payment workflow now have customer/provider UI, ownership checks, notifications and audit coverage. Real payment providers and payouts, direct customer-provider messaging, portfolios, review moderation UI and a configurable availability calendar are not complete product flows.
-4. **Authentication hardening (in progress):** password recovery now advertises whether email delivery is available and returns HTTP 503 instead of a success-shaped response when no provider is configured. Verified-email and optional MFA design, asynchronous transactional email, and retention/cleanup for expired reset and refresh tokens remain.
-5. **Observability:** define structured operational events, health/readiness probes for deployed infrastructure and alerting dashboards.
+4. **Authentication hardening (in progress):** password recovery now advertises whether email delivery is available and returns HTTP 503 instead of a success-shaped response when no provider is configured; a hosted worker cleans up expired authentication tokens. Verified-email and optional MFA design and asynchronous transactional email remain.
+5. **Observability (in progress):** distinct liveness and database-readiness probes are available. Production alerting dashboards and live infrastructure probes remain.
 
 ## Implementation checklist
 
@@ -38,6 +38,8 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 - [x] Validate a complete Compose startup, frontend-to-API proxy, and SignalR negotiation path.
 - [x] Add production/AWS deployment runbook.
 - [x] Fail closed and visibly disable password recovery when email delivery is not configured.
+- [x] Add scheduled cleanup for expired and used authentication tokens.
+- [x] Separate liveness and database readiness health endpoints.
 - [ ] Configure AWS authentication, verify the production estimate stays within the $84/month budget, and deploy to `eu-west-2`.
 - [ ] Implement the next complete marketplace workflow, beginning with reviews after confirming its intended moderation rules.
 - [x] Implement the completed-job review workflow through API, UI, notifications and automated tests.

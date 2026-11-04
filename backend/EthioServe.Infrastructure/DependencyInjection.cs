@@ -38,6 +38,7 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<IEmailService, DevelopmentEmailService>();
+        services.AddScoped<ExpiredTokenCleanup>();
 
         services.AddIdentityCore<ApplicationUser>(options =>
             {

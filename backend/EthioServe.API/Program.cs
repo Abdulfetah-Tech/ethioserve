@@ -49,6 +49,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddRealtime();
+builder.Services.AddOptions<TokenCleanupSettings>()
+    .Bind(builder.Configuration.GetSection(TokenCleanupSettings.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+builder.Services.AddHostedService<ExpiredTokenCleanupWorker>();
 
 builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = context =>
@@ -174,6 +179,7 @@ app.MapControllers();
 app.MapRealtime();
 app.MapHealthChecks("/health").AllowAnonymous();
 app.MapHealthChecks("/health/live", new() { Predicate = _ => false }).AllowAnonymous();
+app.MapHealthChecks("/health/ready").AllowAnonymous();
 
 app.Run();
 

@@ -10,7 +10,7 @@
    docker compose up --build
    ```
 
-4. Open `http://localhost:4200`. The frontend proxies `/api` and `/hubs` to the private API container. Health endpoints are available at `http://localhost:5102/health` and `http://localhost:5102/health/live`.
+4. Open `http://localhost:4200`. The frontend proxies `/api` and `/hubs` to the private API container. Readiness endpoints are available at `http://localhost:5102/health` and `http://localhost:5102/health/ready`; `/health/live` does not depend on PostgreSQL.
 
 The Compose stack sets `Database__ApplyMigrationsOnStartup=true`. This is suitable for its one API container: it applies EF migrations and idempotently adds required roles, Ethiopian locations and catalog records. It does not create a production administrator or demo users.
 
@@ -31,7 +31,7 @@ The mock payment gateway is enabled by default only in Development and Testing. 
 
 ## Production preflight and rollout
 
-Before deploying, configure the API task with `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__Default` and `Jwt__SigningKey` from Secrets Manager, `Database__ApplyMigrationsOnStartup=false`, the public frontend origin in `Cors__AllowedOrigins__0`, the public frontend URL in `App__FrontendBaseUrl`, and `Storage__RootPath` set to the EFS mount path. Do not configure `Seed__AdminEmail`, `Seed__AdminPassword`, `Seed__DemoPassword`, or `App__LogEmailBodies`; provision administrators separately. Until a real email provider is configured, password recovery is explicitly unavailable. The mock payment gateway remains disabled in Production.
+Before deploying, configure the API task with `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__Default` and `Jwt__SigningKey` from Secrets Manager, `Database__ApplyMigrationsOnStartup=false`, the public frontend origin in `Cors__AllowedOrigins__0`, the public frontend URL in `App__FrontendBaseUrl`, `Storage__RootPath` set to the EFS mount path, and `Security__TokenCleanupIntervalMinutes` between 5 and 1440 (default 360). Use `/health/live` for container liveness and `/health/ready` for the load balancer target-group readiness check. Do not configure `Seed__AdminEmail`, `Seed__AdminPassword`, `Seed__DemoPassword`, or `App__LogEmailBodies`; provision administrators separately. Until a real email provider is configured, password recovery is explicitly unavailable. The mock payment gateway remains disabled in Production.
 
 For each release:
 
@@ -39,7 +39,7 @@ For each release:
 2. Take or verify a recent RDS backup and confirm the EFS backup is current.
 3. Run one migration task using the new API image and `Database__ApplyMigrationsOnStartup=true`. Stop if it fails.
 4. Update the ECS service to the new task definition with `Database__ApplyMigrationsOnStartup=false`. Wait for healthy ALB targets.
-5. Smoke-test the public frontend, `/health/live`, and a public API route. Verify authenticated SignalR clients can connect through `/hubs/notifications`.
+5. Smoke-test the public frontend, `/health/live`, `/health/ready`, and a public API route. Verify authenticated SignalR clients can connect through `/hubs/notifications`.
 6. Monitor API errors, ALB target health, ECS restarts, and database pressure. Roll back to the prior task definition if the new revision is unhealthy.
 
 Use backward-compatible, additive schema changes while old and new tasks may overlap. For a destructive migration, plan a maintenance window and a tested RDS restore; an application rollback alone cannot reverse destructive data changes.

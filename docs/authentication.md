@@ -49,7 +49,7 @@ Password recovery reports itself unavailable and returns HTTP 503 until email de
 - No email verification or multi-factor authentication yet.
 - The forgot-password response time differs slightly when the account exists (the email is sent inline).
   Phase 7 moves email sending to a background queue.
-- Refresh and reset tokens live in PostgreSQL and currently have no automated cleanup job.
+- Expired refresh tokens and expired or used password-reset tokens are removed by a hosted cleanup worker. Configure `Security:TokenCleanupIntervalMinutes` between 5 and 1440 minutes (default 360).
 - The development admin comes from local config (`Seed:AdminEmail`, `Seed:AdminPassword`; defaults in `appsettings.Development.json` are `admin@ethioserve.local` / `Admin12345!`). Production admins need a deliberate step.
 
 ## Configuration

@@ -1,8 +1,11 @@
 using EthioServe.Application.Auth;
 using EthioServe.Application.Common.Exceptions;
+using EthioServe.Domain.Entities;
+using EthioServe.Infrastructure.Identity;
 using EthioServe.Tests.Support;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EthioServe.Tests.Integration;
 
@@ -184,5 +187,57 @@ public sealed class PasswordResetServiceTests(DatabaseFixture fixture) : IAsyncL
 
         var login = await LoginAsync(email, NewPassword);
         Assert.Equal(email, login.User.Email);
+    }
+
+    [Fact]
+    public async Task Expired_token_cleanup_removes_only_expired_or_used_tokens()
+    {
+        var email = NewEmail();
+        var session = await RegisterAsync(email);
+        var now = _auth.Clock.UtcNow;
+        var expiredRefreshHash = $"expired-{Guid.NewGuid():N}";
+        var activeRefreshHash = $"active-{Guid.NewGuid():N}";
+        var expiredResetHash = $"expired-{Guid.NewGuid():N}";
+        var usedResetHash = $"used-{Guid.NewGuid():N}";
+        var activeResetHash = $"active-{Guid.NewGuid():N}";
+
+        await _auth.DbVoid(async db =>
+        {
+            var user = await db.Users.SingleAsync(u => u.Email == email);
+            db.RefreshTokens.Add(new RefreshToken(
+                user.Id, Guid.NewGuid(), expiredRefreshHash, now.AddTicks(-1), "127.0.0.1"));
+            db.RefreshTokens.Add(new RefreshToken(
+                user.Id, Guid.NewGuid(), activeRefreshHash, now.AddDays(1), "127.0.0.1"));
+
+            var expiredReset = new PasswordResetToken(
+                user.Id, expiredResetHash, now.AddTicks(-1), "127.0.0.1");
+            var usedReset = new PasswordResetToken(
+                user.Id, usedResetHash, now.AddDays(1), "127.0.0.1");
+            usedReset.MarkUsed(now);
+            db.PasswordResetTokens.AddRange(expiredReset, usedReset);
+            db.PasswordResetTokens.Add(new PasswordResetToken(
+                user.Id, activeResetHash, now.AddDays(1), "127.0.0.1"));
+            await db.SaveChangesAsync();
+        });
+
+        await using var scope = _auth.Services.CreateAsyncScope();
+        var cleanup = scope.ServiceProvider.GetRequiredService<ExpiredTokenCleanup>();
+        var deleted = await cleanup.RunOnceAsync();
+
+        Assert.True(deleted.RefreshTokens >= 1);
+        Assert.True(deleted.PasswordResetTokens >= 2);
+        Assert.False(await _auth.Db(db =>
+            db.RefreshTokens.AnyAsync(token => token.TokenHash == expiredRefreshHash)));
+        Assert.True(await _auth.Db(db =>
+            db.RefreshTokens.AnyAsync(token => token.TokenHash == activeRefreshHash)));
+        Assert.False(await _auth.Db(db =>
+            db.PasswordResetTokens.AnyAsync(token =>
+                token.TokenHash == expiredResetHash || token.TokenHash == usedResetHash)));
+        Assert.True(await _auth.Db(db =>
+            db.PasswordResetTokens.AnyAsync(token => token.TokenHash == activeResetHash)));
+        Assert.True(await _auth.Db(db =>
+            db.RefreshTokens.AnyAsync(token => token.UserId == session.User.Id)));
+        Assert.True(await _auth.Db(db =>
+            db.PasswordResetTokens.AnyAsync(token => token.UserId == session.User.Id)));
     }
 }
