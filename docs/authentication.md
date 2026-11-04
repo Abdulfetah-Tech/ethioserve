@@ -48,7 +48,7 @@ Email is sent through `IEmailService`. The development implementation only logs;
 - The forgot-password response time differs slightly when the account exists (the email is sent inline).
   Phase 7 moves email sending to a background queue.
 - Refresh and reset tokens live in PostgreSQL. A cleanup job for expired rows arrives with the background jobs.
-- The development admin comes from local config (`Seed:AdminEmail`, `Seed:AdminPassword`; defaults in `appsettings.Development.json` and Docker compose are `admin@ethioserve.local` / `Admin12345!`). Production admins need a deliberate step.
+- The development admin comes from local config (`Seed:AdminEmail`, `Seed:AdminPassword`; defaults in `appsettings.Development.json` are `admin@ethioserve.local` / `Admin12345!`). Production admins need a deliberate step.
 
 ## Configuration
 `Jwt:Issuer`, `Jwt:Audience`, `Jwt:AccessTokenMinutes`, `Jwt:RefreshTokenDays`, `App:FrontendBaseUrl`,
@@ -62,5 +62,5 @@ The repository includes safe local-development defaults so the admin dashboard a
 - Admin password: `Admin12345!`
 - Demo user password: `Demo123456!`
 
-These values are only for local development. Override them through environment variables (`Seed__AdminEmail`,
-`Seed__AdminPassword`, `Seed__DemoPassword`) or user-secrets before deploying outside development.
+These values are only for local development. Do not configure `Seed__AdminEmail`, `Seed__AdminPassword`, or
+`Seed__DemoPassword` outside development; provision production administrators through a deliberate, secured procedure.

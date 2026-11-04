@@ -14,6 +14,8 @@
 
 The Compose stack sets `Database__ApplyMigrationsOnStartup=true`. This is suitable for its one API container: it applies EF migrations and idempotently adds required roles, Ethiopian locations and catalog records. It does not create a production administrator or demo users.
 
+Request uploads are stored in the Compose `ethioserve-uploads` volume. The API's `Storage__RootPath` must point to a durable mount; without it, the application falls back to a temporary directory.
+
 The mock payment gateway is enabled by default only in Development and Testing. It simulates success, decline, and cancellation; it does not move money or collect card or mobile-wallet details. Production always disables the mock gateway, even if `Payments__AllowMock=true` is supplied. Chapa, Telebirr, and provider payouts are not integrated yet.
 
 ## AWS target architecture
@@ -21,10 +23,26 @@ The mock payment gateway is enabled by default only in Development and Testing. 
 - **Frontend:** static Angular assets in S3 + CloudFront, or a containerized frontend service when same-origin reverse proxying is required.
 - **API:** ECS Fargate service behind an Application Load Balancer. Run at least two tasks across availability zones after the database is initialized.
 - **Database:** Amazon RDS for PostgreSQL with Multi-AZ enabled where the service-level objective requires it. Keep the database private; allow ingress only from the API security group.
+- **Request uploads:** the current implementation uses local filesystem storage. Mount a private, encrypted EFS file system at the same `Storage__RootPath` on every API task, and back it up. Do not use Fargate task storage or a per-task volume for customer uploads; files would be lost or unavailable when tasks are replaced or scaled. An object-storage implementation is a future alternative.
 - **Images:** build in CI and push immutable image tags to Amazon ECR.
 - **Secrets:** place the connection string and `Jwt__SigningKey` in AWS Secrets Manager; inject them into ECS task definitions. Never put them in images, task-definition source, GitHub variables or `.env` files.
 - **TLS and DNS:** terminate TLS at the ALB using ACM. Forward `X-Forwarded-Proto` and configure the API task to trust only the ALB or service network proxy.
 - **Logs and alerts:** ship container stdout to CloudWatch Logs; alarm on ALB 5xx, unhealthy targets, ECS task restarts, RDS storage/connection pressure and authentication-rate-limit spikes.
+
+## Production preflight and rollout
+
+Before deploying, configure the API task with `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__Default` and `Jwt__SigningKey` from Secrets Manager, `Database__ApplyMigrationsOnStartup=false`, the public frontend origin in `Cors__AllowedOrigins__0`, the public frontend URL in `App__FrontendBaseUrl`, and `Storage__RootPath` set to the EFS mount path. Do not configure `Seed__AdminEmail`, `Seed__AdminPassword`, or `Seed__DemoPassword`; provision administrators separately. The mock payment gateway remains disabled in Production.
+
+For each release:
+
+1. Build and scan the API and frontend images, then push immutable tags to ECR.
+2. Take or verify a recent RDS backup and confirm the EFS backup is current.
+3. Run one migration task using the new API image and `Database__ApplyMigrationsOnStartup=true`. Stop if it fails.
+4. Update the ECS service to the new task definition with `Database__ApplyMigrationsOnStartup=false`. Wait for healthy ALB targets.
+5. Smoke-test the public frontend, `/health/live`, and a public API route. Verify authenticated SignalR clients can connect through `/hubs/notifications`.
+6. Monitor API errors, ALB target health, ECS restarts, and database pressure. Roll back to the prior task definition if the new revision is unhealthy.
+
+Use backward-compatible, additive schema changes while old and new tasks may overlap. For a destructive migration, plan a maintenance window and a tested RDS restore; an application rollback alone cannot reverse destructive data changes.
 
 ## Database migration procedure
 

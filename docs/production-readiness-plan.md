@@ -23,8 +23,8 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 
 ### Prioritized gaps
 
-1. **Deployment correctness (in progress):** Compose now supplies the required JWT signing key, initializes an empty database and forwards `/api` and `/hubs` to the private API container. A full container startup check remains.
-2. **Operations:** document production environment variables, migrations, backups, AWS ECS/Fargate/RDS topology, secrets management, logs and TLS termination.
+1. **Deployment correctness (complete):** Compose supplies the required JWT signing key, initializes an empty database, persists request uploads, avoids default production seed credentials and forwards `/api` and `/hubs` to the private API container. The isolated Compose startup and frontend proxy paths were validated.
+2. **Operations:** the deployment guide now documents production configuration, migration and rollout steps, backups, AWS ECS/Fargate/RDS/EFS topology, secrets management, logs and TLS termination. Production infrastructure and restore procedures still need live verification.
 3. **Marketplace completeness:** completed-job reviews and the mock payment workflow now have customer/provider UI, ownership checks, notifications and audit coverage. Real payment providers and payouts, direct customer-provider messaging, portfolios, review moderation UI and a configurable availability calendar are not complete product flows.
 4. **Authentication hardening:** add verified-email and optional MFA design, asynchronous transactional email, and retention/cleanup for expired reset and refresh tokens.
 5. **Observability:** define structured operational events, health/readiness probes for deployed infrastructure and alerting dashboards.
@@ -35,8 +35,8 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 - [x] Confirm no committed `.env` file and avoid exposing local secrets.
 - [x] Repair Compose secret contract, first-run database initialization, and frontend API/SignalR proxying.
 - [x] Keep generated frontend artifacts out of the container build context.
-- [ ] Validate a complete Compose startup plus browser-to-API and SignalR path.
-- [ ] Add production/AWS deployment runbook.
+- [x] Validate a complete Compose startup, frontend-to-API proxy, and SignalR negotiation path.
+- [x] Add production/AWS deployment runbook.
 - [ ] Implement the next complete marketplace workflow, beginning with reviews after confirming its intended moderation rules.
 - [x] Implement the completed-job review workflow through API, UI, notifications and automated tests.
 - [x] Implement customer payment checkout/history and provider payment/earnings using a mock gateway that is disabled in Production.

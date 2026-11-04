@@ -31,10 +31,8 @@ services:
       ASPNETCORE_HTTP_PORTS: 8080
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=${POSTGRES_DB:-ethioserve};Username=${POSTGRES_USER:-ethioserve};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env}
-      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-admin@ethioserve.local}
-      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-Admin12345!}
-      Seed__DemoPassword: ${SEED_DEMO_PASSWORD:-Demo123456!}
       Database__ApplyMigrationsOnStartup: "true"
+      Storage__RootPath: /app/App_Data/uploads/requests
       Cors__AllowedOrigins__0: http://localhost:${FRONTEND_PORT:-4200}
       App__FrontendBaseUrl: http://localhost:${FRONTEND_PORT:-4200}
     ports:
