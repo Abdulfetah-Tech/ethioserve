@@ -109,7 +109,8 @@ foreach ($name in $names) {
 $older = @(
     'core\models\auth.models.ts', 'core\api\api-error.ts', 'core\api\api-error.spec.ts',
     'core\api\apply-server-errors.ts', 'features\auth\login.ts', 'features\auth\register.ts',
-    'features\auth\forgot-password.ts', 'features\auth\reset-password.ts', 'features\customer\customer-dashboard.ts'
+    'features\auth\forgot-password.ts', 'features\auth\forgot-password.spec.ts',
+    'features\auth\reset-password.ts', 'features\customer\customer-dashboard.ts'
 )
 $known = $expected + $older
 $folders = 'core\models\', 'core\api\', 'features\marketplace\', 'features\provider\', 'features\auth\', 'features\admin\', 'features\customer\', 'shared\'
