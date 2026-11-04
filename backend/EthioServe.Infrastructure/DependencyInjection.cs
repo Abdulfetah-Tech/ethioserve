@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using Amazon;
+using Amazon.SimpleEmailV2;
 using EthioServe.Application.Abstractions;
 using EthioServe.Application.Auth;
 using EthioServe.Infrastructure.Identity;
@@ -7,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace EthioServe.Infrastructure;
 
@@ -32,12 +36,55 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<ITokenService, JwtTokenService>();
-                services.AddOptions<AppOptions>()
+        services.AddOptions<AppOptions>()
             .Bind(configuration.GetSection(AppOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddSingleton<IEmailService, DevelopmentEmailService>();
+        var emailProvider = configuration[$"{EmailOptions.SectionName}:Provider"]?.Trim();
+        var useSes = string.Equals(emailProvider, "Ses", StringComparison.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(emailProvider)
+            && !string.Equals(emailProvider, "None", StringComparison.OrdinalIgnoreCase)
+            && !useSes)
+        {
+            throw new InvalidOperationException("Email:Provider must be 'None' or 'Ses'.");
+        }
+
+        services.AddOptions<EmailOptions>()
+            .Bind(configuration.GetSection(EmailOptions.SectionName))
+            .Validate(options =>
+                    string.Equals(options.Provider, "None", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(options.Provider, "Ses", StringComparison.OrdinalIgnoreCase),
+                "Email:Provider must be 'None' or 'Ses'.")
+            .Validate(options =>
+                    !string.Equals(options.Provider, "Ses", StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrWhiteSpace(options.SenderAddress)
+                        && new EmailAddressAttribute().IsValid(options.SenderAddress)),
+                "Email:SenderAddress must be a valid email address when using SES.")
+            .Validate(options =>
+                    !string.Equals(options.Provider, "Ses", StringComparison.OrdinalIgnoreCase)
+                    || !string.IsNullOrWhiteSpace(options.Region),
+                "Email:Region is required when using SES.")
+            .ValidateOnStart();
+
+        if (useSes)
+        {
+            services.AddSingleton<IAmazonSimpleEmailServiceV2>(serviceProvider =>
+            {
+                var options = serviceProvider.GetRequiredService<IOptions<EmailOptions>>().Value;
+                var clientConfig = new AmazonSimpleEmailServiceV2Config
+                {
+                    RegionEndpoint = RegionEndpoint.GetBySystemName(options.Region)
+                };
+                return new AmazonSimpleEmailServiceV2Client(clientConfig);
+            });
+            services.AddSingleton<IEmailService, SesEmailService>();
+        }
+        else
+        {
+            services.AddSingleton<IEmailService, DevelopmentEmailService>();
+        }
+
         services.AddScoped<ExpiredTokenCleanup>();
 
         services.AddIdentityCore<ApplicationUser>(options =>

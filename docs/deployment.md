@@ -18,6 +18,8 @@ Request uploads are stored in the Compose `ethioserve-uploads` volume. The API's
 
 The mock payment gateway is enabled by default only in Development and Testing. It simulates success, decline, and cancellation; it does not move money or collect card or mobile-wallet details. Production always disables the mock gateway, even if `Payments__AllowMock=true` is supplied. Chapa, Telebirr, and provider payouts are not integrated yet.
 
+Password recovery uses Amazon SES when `Email__Provider=Ses`; otherwise delivery is unavailable outside Development email-body logging and test substitutes. For SES, verify the sender identity in the configured region, move the account out of the SES sandbox before sending to arbitrary recipients, and grant the API workload's IAM role `ses:SendEmail` for that identity. The SDK uses the AWS default credential chain; use the ECS task role in production and never place AWS access keys in application configuration.
+
 ## AWS target architecture
 
 - **Frontend:** static Angular assets in S3 + CloudFront, or a containerized frontend service when same-origin reverse proxying is required.
@@ -26,12 +28,13 @@ The mock payment gateway is enabled by default only in Development and Testing. 
 - **Request uploads:** the current implementation uses local filesystem storage. Mount a private, encrypted EFS file system at the same `Storage__RootPath` on every API task, and back it up. Do not use Fargate task storage or a per-task volume for customer uploads; files would be lost or unavailable when tasks are replaced or scaled. An object-storage implementation is a future alternative.
 - **Images:** build in CI and push immutable image tags to Amazon ECR.
 - **Secrets:** place the connection string and `Jwt__SigningKey` in AWS Secrets Manager; inject them into ECS task definitions. Never put them in images, task-definition source, GitHub variables or `.env` files.
+- **Email:** use Amazon SES in `eu-west-2` with a verified sender identity and an ECS task role limited to `ses:SendEmail` for that identity.
 - **TLS and DNS:** terminate TLS at the ALB using ACM. Forward `X-Forwarded-Proto` and configure the API task to trust only the ALB or service network proxy.
 - **Logs and alerts:** ship container stdout to CloudWatch Logs; alarm on ALB 5xx, unhealthy targets, ECS task restarts, RDS storage/connection pressure and authentication-rate-limit spikes.
 
 ## Production preflight and rollout
 
-Before deploying, configure the API task with `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__Default` and `Jwt__SigningKey` from Secrets Manager, `Database__ApplyMigrationsOnStartup=false`, the public frontend origin in `Cors__AllowedOrigins__0`, the public frontend URL in `App__FrontendBaseUrl`, `Storage__RootPath` set to the EFS mount path, and `Security__TokenCleanupIntervalMinutes` between 5 and 1440 (default 360). Use `/health/live` for container liveness and `/health/ready` for the load balancer target-group readiness check. Do not configure `Seed__AdminEmail`, `Seed__AdminPassword`, `Seed__DemoPassword`, or `App__LogEmailBodies`; provision administrators separately. Until a real email provider is configured, password recovery is explicitly unavailable. The mock payment gateway remains disabled in Production.
+Before deploying, configure the API task with `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__Default` and `Jwt__SigningKey` from Secrets Manager, `Database__ApplyMigrationsOnStartup=false`, the public frontend origin in `Cors__AllowedOrigins__0`, the public frontend URL in `App__FrontendBaseUrl`, `Storage__RootPath` set to the EFS mount path, `Email__Provider=Ses`, `Email__Region=eu-west-2`, a verified `Email__SenderAddress`, and `Security__TokenCleanupIntervalMinutes` between 5 and 1440 (default 360). Attach the least-privilege SES send policy to the ECS task role. Use `/health/live` for container liveness and `/health/ready` for the load balancer target-group readiness check. Do not configure `Seed__AdminEmail`, `Seed__AdminPassword`, `Seed__DemoPassword`, or `App__LogEmailBodies`; provision administrators separately. The mock payment gateway remains disabled in Production.
 
 For each release:
 
@@ -61,3 +64,5 @@ Take automated RDS backups and test restore procedures before storing real custo
 - Run `npm ci`, production build and unit tests for the frontend.
 - Build both container images and validate `docker compose config` with injected non-production test values.
 - Scan dependencies and images, then deploy an immutable ECR tag only after the above checks pass.
+
+After deployment, verify SES sender identity and sandbox status, then send a password-reset message to a controlled test mailbox.
