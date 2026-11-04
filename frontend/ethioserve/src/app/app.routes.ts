@@ -84,6 +84,12 @@ export const routes: Routes = [
     canActivate: [roleGuard(Roles.Admin)],
     loadComponent: () => import('./features/admin/admin-providers').then((m) => m.AdminProviders),
   },
+    {
+      path: 'admin/reviews',
+      title: 'Review moderation | EthioServe',
+      canActivate: [roleGuard(Roles.Admin)],
+      loadComponent: () => import('./features/admin/admin-reviews').then((m) => m.AdminReviews),
+    },
   {
     path: 'admin/providers/:id',
     title: 'Provider | EthioServe',

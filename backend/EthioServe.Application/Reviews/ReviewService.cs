@@ -59,6 +59,41 @@ public sealed class ReviewService(
         return new PagedResult<ProviderReviewDto>(items, page, pageSize, total);
     }
 
+    public async Task<PagedResult<AdminReviewDto>> ListAdminAsync(AdminReviewQuery query, CancellationToken ct = default)
+    {
+        var (page, pageSize) = Paging.Normalize(query.Page, query.PageSize);
+        var reviews = db.Reviews.AsNoTracking();
+
+        if (query.IsVisible is { } isVisible)
+        {
+            reviews = reviews.Where(review => review.IsVisible == isVisible);
+        }
+
+        var total = await reviews.CountAsync(ct);
+        var items = await (
+                from review in reviews
+                join provider in db.ProviderProfiles.AsNoTracking() on review.ProviderId equals provider.Id
+                orderby review.CreatedAt descending, review.Id descending
+                select new AdminReviewDto(
+                    review.Id,
+                    provider.BusinessName,
+                    review.Rating,
+                    review.Comment,
+                    review.CreatedAt,
+                    review.IsVisible))
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return new PagedResult<AdminReviewDto>(items, page, pageSize, total);
+    }
+
+    public Task<AdminReviewDto> HideAsync(Guid reviewId, CancellationToken ct = default) =>
+        SetVisibilityAsync(reviewId, isVisible: false, ct);
+
+    public Task<AdminReviewDto> RestoreAsync(Guid reviewId, CancellationToken ct = default) =>
+        SetVisibilityAsync(reviewId, isVisible: true, ct);
+
     private async Task<ProviderReviewDto> CreateCoreAsync(
         Guid requestId, Guid customerId, Guid providerId, CreateReviewRequest request, CancellationToken ct)
     {
@@ -125,6 +160,72 @@ public sealed class ReviewService(
         return row.ProviderId;
     }
 
+    private async Task<AdminReviewDto> SetVisibilityAsync(Guid reviewId, bool isVisible, CancellationToken ct)
+    {
+        var providerId = await db.Reviews.AsNoTracking()
+            .Where(review => review.Id == reviewId)
+            .Select(review => (Guid?)review.ProviderId)
+            .SingleOrDefaultAsync(ct)
+            ?? throw new NotFoundException("Review not found.");
+
+        return await db.WithExclusiveLockAsync(
+            $"provider-rating:{providerId:N}",
+            async () =>
+            {
+                var review = await db.Reviews.FirstOrDefaultAsync(item => item.Id == reviewId, ct)
+                             ?? throw new NotFoundException("Review not found.");
+                var provider = await db.ProviderProfiles.FirstAsync(item => item.Id == providerId, ct);
+
+                if (review.IsVisible != isVisible)
+                {
+                    var before = Snapshot(review);
+                    if (isVisible)
+                    {
+                        review.Show();
+                    }
+                    else
+                    {
+                        review.Hide();
+                    }
+
+                    var summary = await db.Reviews.AsNoTracking()
+                        .Where(item => item.ProviderId == providerId && item.IsVisible && item.Id != reviewId)
+                        .GroupBy(_ => 1)
+                        .Select(group => new
+                        {
+                            RatingSum = group.Sum(item => (decimal)item.Rating),
+                            TotalReviews = group.Count()
+                        })
+                        .SingleOrDefaultAsync(ct);
+
+                    var totalReviews = (summary?.TotalReviews ?? 0) + (isVisible ? 1 : 0);
+                    var ratingSum = (summary?.RatingSum ?? 0m) + (isVisible ? review.Rating : 0);
+                    var averageRating = totalReviews == 0 ? 0m : ratingSum / totalReviews;
+                    provider.ApplyRatingSummary(averageRating, totalReviews);
+                    audit.Record(
+                        isVisible ? "ReviewRestored" : "ReviewHidden",
+                        nameof(Review),
+                        review.Id,
+                        before,
+                        Snapshot(review));
+                    await db.SaveChangesAsync(ct);
+                }
+
+                return ToAdminDto(review, provider.BusinessName);
+            },
+            ct);
+    }
+
+    private static object Snapshot(Review review) => new
+    {
+        review.ProviderId,
+        review.Rating,
+        review.IsVisible
+    };
+
     private static ProviderReviewDto ToDto(Review review) =>
         new(review.Id, review.Rating, review.Comment, review.CreatedAt);
+
+    private static AdminReviewDto ToAdminDto(Review review, string providerBusinessName) =>
+        new(review.Id, providerBusinessName, review.Rating, review.Comment, review.CreatedAt, review.IsVisible);
 }

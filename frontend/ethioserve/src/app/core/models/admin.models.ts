@@ -23,10 +23,24 @@ export interface AdminProviderDetail {
   offers: MyOffer[];
 }
 
+export interface AdminReview {
+  id: string;
+  providerBusinessName: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  isVisible: boolean;
+}
+
 export type StatusFilter = VerificationStatus | 'All';
 
 export interface AdminProviderQuery {
   status?: StatusFilter;
   search?: string;
+  page?: number;
+}
+
+export interface AdminReviewQuery {
+  isVisible?: boolean;
   page?: number;
 }

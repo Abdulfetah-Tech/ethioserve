@@ -11,8 +11,112 @@ namespace EthioServe.Tests.Integration;
 [Collection(ApiCollection.Name)]
 public sealed class ReviewApiTests(ApiFactory factory)
 {
+    private const string UnknownId = "00000000-0000-0000-0000-000000000001";
+
     private readonly ApiSession _session = new(factory);
     private readonly JobBuilder _jobs = new(factory);
+
+    [Fact]
+    public async Task Only_admins_can_list_or_moderate_reviews()
+    {
+        using var anonymous = _session.CreateAnonymousClient();
+        using var customer = await _session.CustomerAsync();
+        using var provider = await _session.RegisteredProviderAsync();
+
+        foreach (var (method, url) in new[]
+                 {
+                     (HttpMethod.Get, "/api/admin/reviews"),
+                     (HttpMethod.Post, $"/api/admin/reviews/{UnknownId}/hide"),
+                     (HttpMethod.Post, $"/api/admin/reviews/{UnknownId}/restore")
+                 })
+        {
+            var (anonymousStatus, _) = await ApiJson.SendAsync(anonymous, method, url);
+            Assert.Equal(HttpStatusCode.Unauthorized, anonymousStatus);
+
+            var (customerStatus, _) = await ApiJson.SendAsync(customer.Http, method, url);
+            Assert.Equal(HttpStatusCode.Forbidden, customerStatus);
+
+            var (providerStatus, _) = await ApiJson.SendAsync(provider.Http, method, url);
+            Assert.Equal(HttpStatusCode.Forbidden, providerStatus);
+        }
+    }
+
+    [Fact]
+    public async Task Admins_can_hide_and_restore_reviews_and_provider_ratings_follow_visibility()
+    {
+        using var world = await _jobs.NewWorldAsync();
+        using var admin = await _session.AdminAsync();
+        var requestId = await CompleteJobAsync(world);
+        var (_, created) = await ApiJson.SendAsync(
+            world.Customer.Http,
+            HttpMethod.Post,
+            $"/api/requests/{requestId}/reviews",
+            new { rating = 5, comment = "A private audit-safe comment." });
+        var reviewId = created.GetProperty("id").GetGuid();
+
+        var (visibleStatus, visibleQueue) = await ApiJson.SendAsync(
+            admin.Http, HttpMethod.Get, "/api/admin/reviews?isVisible=true");
+        var visibleReview = visibleQueue.GetProperty("items").EnumerateArray()
+            .First(item => item.GetProperty("id").GetGuid() == reviewId);
+        Assert.Equal(HttpStatusCode.OK, visibleStatus);
+        Assert.Equal("A private audit-safe comment.", visibleReview.GetProperty("comment").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(visibleReview.GetProperty("providerBusinessName").GetString()));
+        Assert.True(visibleReview.GetProperty("isVisible").GetBoolean());
+
+        var (hideStatus, hidden) = await ApiJson.SendAsync(
+            admin.Http, HttpMethod.Post, $"/api/admin/reviews/{reviewId}/hide");
+        Assert.Equal(HttpStatusCode.OK, hideStatus);
+        Assert.False(hidden.GetProperty("isVisible").GetBoolean());
+
+        using var anonymous = _session.CreateAnonymousClient();
+        var (_, publicAfterHide) = await ApiJson.SendAsync(
+            anonymous, HttpMethod.Get, $"/api/providers/{world.Provider.ProfileId}/reviews");
+        Assert.Equal(0, publicAfterHide.GetProperty("totalCount").GetInt32());
+
+        var (_, hiddenQueue) = await ApiJson.SendAsync(
+            admin.Http, HttpMethod.Get, "/api/admin/reviews?isVisible=false");
+        Assert.Contains(
+            hiddenQueue.GetProperty("items").EnumerateArray(),
+            item => item.GetProperty("id").GetGuid() == reviewId);
+
+        var (repeatHideStatus, _) = await ApiJson.SendAsync(
+            admin.Http, HttpMethod.Post, $"/api/admin/reviews/{reviewId}/hide");
+        Assert.Equal(HttpStatusCode.OK, repeatHideStatus);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var providerProfile = await db.ProviderProfiles.SingleAsync(p => p.Id == world.Provider.ProfileId);
+            var hideAudit = await db.AuditLogs.SingleAsync(a =>
+                a.EntityName == nameof(Review) && a.EntityId == reviewId.ToString() && a.Action == "ReviewHidden");
+            Assert.Equal(0m, providerProfile.AverageRating);
+            Assert.Equal(0, providerProfile.TotalReviews);
+            Assert.Equal("ReviewHidden", hideAudit.Action);
+            Assert.Equal(admin.UserId, hideAudit.UserId);
+            Assert.DoesNotContain("private audit-safe comment", hideAudit.NewValues);
+        }
+
+        var (restoreStatus, restored) = await ApiJson.SendAsync(
+            admin.Http, HttpMethod.Post, $"/api/admin/reviews/{reviewId}/restore");
+        Assert.Equal(HttpStatusCode.OK, restoreStatus);
+        Assert.True(restored.GetProperty("isVisible").GetBoolean());
+
+        var (_, publicAfterRestore) = await ApiJson.SendAsync(
+            anonymous, HttpMethod.Get, $"/api/providers/{world.Provider.ProfileId}/reviews");
+        Assert.Equal(1, publicAfterRestore.GetProperty("totalCount").GetInt32());
+
+        await using var verifyScope = factory.Services.CreateAsyncScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var restoredProvider = await verifyDb.ProviderProfiles.SingleAsync(p => p.Id == world.Provider.ProfileId);
+        var decisions = await verifyDb.AuditLogs.AsNoTracking()
+            .Where(a => a.EntityName == nameof(Review) && a.EntityId == reviewId.ToString())
+            .OrderBy(a => a.Id)
+            .Select(a => a.Action)
+            .ToArrayAsync();
+        Assert.Equal(5m, restoredProvider.AverageRating);
+        Assert.Equal(1, restoredProvider.TotalReviews);
+        Assert.Equal(new[] { "ReviewCreated", "ReviewHidden", "ReviewRestored" }, decisions);
+    }
 
     [Fact]
     public async Task A_customer_can_review_a_completed_job_and_the_public_provider_rating_is_updated()

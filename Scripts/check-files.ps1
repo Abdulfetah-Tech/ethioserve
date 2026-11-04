@@ -93,6 +93,9 @@ $batches['8.2'] = @(
 $batches['8.3'] = @(
     'features\provider\provider-availability.ts', 'features\provider\provider-availability.spec.ts'
 )
+$batches['8.4'] = @(
+    'features\admin\admin-reviews.ts', 'features\admin\admin-reviews.spec.ts'
+)
 $names = @($batches.Keys)
 
 # Without -UpTo, the newest batch that has at least one file is the one being worked on.

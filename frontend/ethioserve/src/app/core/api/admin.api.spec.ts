@@ -76,4 +76,25 @@ describe('AdminApi', () => {
 
     httpMock.expectOne('/api/admin/providers/a%2Fb').flush({});
   });
+
+  it('filters the review queue and posts hide and restore actions', () => {
+    api.reviews({ isVisible: false, page: 2 }).subscribe();
+    const list = httpMock.expectOne((r) => r.url === '/api/admin/reviews');
+    expect(list.request.params.get('isVisible')).toBe('false');
+    expect(list.request.params.get('page')).toBe('2');
+    expect(list.request.params.get('pageSize')).toBe('15');
+    list.flush(EMPTY_PAGE);
+
+    api.hideReview('review/1').subscribe();
+    const hide = httpMock.expectOne('/api/admin/reviews/review%2F1/hide');
+    expect(hide.request.method).toBe('POST');
+    expect(hide.request.body).toBeNull();
+    hide.flush({});
+
+    api.restoreReview('review-1').subscribe();
+    const restore = httpMock.expectOne('/api/admin/reviews/review-1/restore');
+    expect(restore.request.method).toBe('POST');
+    expect(restore.request.body).toBeNull();
+    restore.flush({});
+  });
 });
