@@ -59,3 +59,28 @@ export interface UpdateOfferRequest {
   description: string | null;
   isActive: boolean;
 }
+
+export interface AvailabilityWindow {
+  startMinute: number;
+  endMinute: number;
+}
+
+export interface WeeklyAvailabilityDay {
+  dayOfWeek: number;
+  windows: AvailabilityWindow[];
+}
+
+export interface AvailabilityDateException {
+  date: string;
+  isClosed: boolean;
+  windows: AvailabilityWindow[];
+}
+
+export interface UpdateProviderAvailabilityCalendar {
+  weeklyHours: WeeklyAvailabilityDay[];
+  dateExceptions: AvailabilityDateException[];
+}
+
+export interface ProviderAvailabilityCalendar extends UpdateProviderAvailabilityCalendar {
+  isConfigured: boolean;
+}

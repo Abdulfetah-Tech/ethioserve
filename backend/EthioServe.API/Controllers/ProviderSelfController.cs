@@ -23,6 +23,23 @@ public sealed class ProviderSelfController(IProviderSelfService providers) : Con
     public async Task<ActionResult<ProviderProfileDto>> SetAvailability(SetAvailabilityRequest request, CancellationToken ct) =>
         Ok(await providers.SetAvailabilityAsync(request.IsAvailable, ct));
 
+    [HttpGet("availability-calendar")]
+    public async Task<ActionResult<ProviderAvailabilityDto>> AvailabilityCalendar(CancellationToken ct) =>
+        Ok(await providers.GetAvailabilityCalendarAsync(ct));
+
+    [HttpPut("availability-calendar")]
+    public async Task<ActionResult<ProviderAvailabilityDto>> UpdateAvailabilityCalendar(
+        UpdateProviderAvailabilityRequest request, CancellationToken ct) =>
+        Ok(await providers.UpdateAvailabilityCalendarAsync(request, ct));
+
+    [HttpDelete("availability-calendar")]
+    public async Task<IActionResult> ClearAvailabilityCalendar(CancellationToken ct)
+    {
+        await providers.ClearAvailabilityCalendarAsync(ct);
+
+        return NoContent();
+    }
+
     [HttpPost("verification-request")]
     public async Task<ActionResult<ProviderProfileDto>> RequestVerification(CancellationToken ct) =>
         Ok(await providers.RequestVerificationAsync(ct));

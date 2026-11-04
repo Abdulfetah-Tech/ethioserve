@@ -24,16 +24,14 @@ public sealed class ProviderAppointmentService(
     private Guid ProviderId =>
         currentUser.ProviderId ?? throw new ForbiddenException("This account has no provider profile.");
 
-    // Everything that books or moves time for one provider takes this lock first.
-    private static string LockKey(Guid providerId) => $"provider-schedule:{providerId:N}";
-
     public async Task<ProviderAppointmentDto> ScheduleAsync(Guid requestId, ScheduleAppointmentRequest request, CancellationToken ct = default)
     {
         var providerId = ProviderId;
         await scheduleValidator.ValidateAndThrowAsync(request, ct);
 
         // Bookings for one provider run one at a time, so two requests for overlapping times can never race each other.
-        var id = await db.WithExclusiveLockAsync(LockKey(providerId), () => ScheduleCoreAsync(providerId, requestId, request, ct), ct);
+        var id = await db.WithExclusiveLockAsync(
+            ProviderScheduleLock.Key(providerId), () => ScheduleCoreAsync(providerId, requestId, request, ct), ct);
 
         return await GetAsync(id, ct);
     }
@@ -79,7 +77,8 @@ public sealed class ProviderAppointmentService(
         var providerId = ProviderId;
         await rescheduleValidator.ValidateAndThrowAsync(request, ct);
 
-        await db.WithExclusiveLockAsync(LockKey(providerId), () => RescheduleCoreAsync(providerId, id, request, ct), ct);
+        await db.WithExclusiveLockAsync(
+            ProviderScheduleLock.Key(providerId), () => RescheduleCoreAsync(providerId, id, request, ct), ct);
 
         return await GetAsync(id, ct);
     }
@@ -166,6 +165,7 @@ public sealed class ProviderAppointmentService(
         }
 
         var end = AppointmentRules.EndFor(start, quote.EstimatedDurationMinutes);
+        await EnsureWithinAvailabilityAsync(providerId, start, end, ct);
         await EnsureFreeAsync(providerId, start, end, Guid.Empty, ct);
 
         var appointment = new Appointment(
@@ -200,6 +200,7 @@ public sealed class ProviderAppointmentService(
         var before = Snapshot(appointment);
         var end = AppointmentRules.EndFor(start, minutes);
 
+        await EnsureWithinAvailabilityAsync(providerId, start, end, ct);
         appointment.Reschedule(start, end, Clean(request.Notes)); // 422 unless it is Scheduled or Confirmed
         await EnsureFreeAsync(providerId, start, end, id, ct);
 
@@ -251,6 +252,20 @@ public sealed class ProviderAppointmentService(
         {
             throw new ConflictException(
                 $"You already have an appointment from {AppointmentRules.FormatLocal(clash.StartAt)} to {AppointmentRules.FormatLocal(clash.EndAt)} (Addis Ababa time). Choose a time that does not overlap.");
+        }
+    }
+
+    private async Task EnsureWithinAvailabilityAsync(
+        Guid providerId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct)
+    {
+        var schedule = await db.ProviderProfiles.AsNoTracking()
+            .Where(profile => profile.Id == providerId)
+            .Select(profile => profile.AvailabilitySchedule)
+            .FirstAsync(ct);
+
+        if (!AppointmentRules.IsWithinAvailability(schedule, start, end))
+        {
+            throw Invalid("Choose a time that fits within your Addis Ababa availability calendar.");
         }
     }
 

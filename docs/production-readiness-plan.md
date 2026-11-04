@@ -25,7 +25,7 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 
 1. **Deployment correctness (complete):** Compose supplies the required JWT signing key, initializes an empty database, persists request uploads, avoids default production seed credentials and forwards `/api` and `/hubs` to the private API container. The isolated Compose startup and frontend proxy paths were validated.
 2. **Operations:** the deployment guide now documents production configuration, migration and rollout steps, backups, AWS ECS/Fargate/RDS/EFS topology, secrets management, logs and TLS termination. Production infrastructure and restore procedures still need live verification.
-3. **Marketplace completeness:** completed-job reviews, provider-scoped customer-provider messaging and the mock payment workflow now have customer/provider UI, ownership checks, notifications and audit coverage. Real payment providers and payouts, portfolios, review moderation UI and a configurable availability calendar are not complete product flows.
+3. **Marketplace completeness:** completed-job reviews, provider-scoped customer-provider messaging, provider availability calendars and the mock payment workflow now have customer/provider UI, ownership checks, notifications and audit coverage. Real payment providers and payouts, portfolios and review moderation UI are not complete product flows.
 4. **Authentication hardening (in progress):** password recovery now advertises whether email delivery is available and returns HTTP 503 instead of a success-shaped response when no provider is configured; a hosted worker cleans up expired authentication tokens. Verified-email and optional MFA design and asynchronous transactional email remain.
 5. **Observability (in progress):** distinct liveness and database-readiness probes are available. Production alerting dashboards and live infrastructure probes remain.
 
@@ -47,4 +47,5 @@ EthioServe is a modular monolith with a clean ASP.NET Core 10 backend (Domain, A
 - [x] Add payment workflow integration and frontend API coverage.
 - [x] Exercise job completion through the appointment API before payment, and add customer checkout/provider earnings UI tests.
 - [x] Add private provider-scoped customer/provider conversations with participant authorization and frontend coverage.
+- [x] Add recurring provider hours and date exceptions with appointment enforcement and Addis Ababa time handling.
 - [ ] Add workflow-level integration and frontend coverage for each new capability.

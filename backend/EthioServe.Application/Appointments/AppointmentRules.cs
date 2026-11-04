@@ -1,4 +1,5 @@
 using System.Globalization;
+using EthioServe.Domain.Entities;
 
 namespace EthioServe.Application.Appointments;
 
@@ -49,7 +50,39 @@ public static class AppointmentRules
     public static bool Overlaps(DateTimeOffset startA, DateTimeOffset endA, DateTimeOffset startB, DateTimeOffset endB) =>
         startA < endB && startB < endA;
 
+    public static bool IsWithinAvailability(
+        ProviderAvailabilitySchedule? schedule, DateTimeOffset start, DateTimeOffset end)
+    {
+        if (schedule is null)
+        {
+            return true;
+        }
+
+        var localStart = start.UtcDateTime.Add(AddisOffset);
+        var localEnd = end.UtcDateTime.Add(AddisOffset);
+        if (localStart.Date != localEnd.Date)
+        {
+            return false;
+        }
+
+        var date = DateOnly.FromDateTime(localStart);
+        var startMinute = localStart.Hour * 60 + localStart.Minute;
+        var endMinute = localEnd.Hour * 60 + localEnd.Minute;
+        var exception = schedule.DateExceptions.FirstOrDefault(item => item.Date == date);
+        if (exception is not null)
+        {
+            return !exception.IsClosed && Fits(exception.Windows, startMinute, endMinute);
+        }
+
+        var weekday = schedule.WeeklyHours.FirstOrDefault(item => item.DayOfWeek == (int)localStart.DayOfWeek);
+
+        return weekday is not null && Fits(weekday.Windows, startMinute, endMinute);
+    }
+
     /// <summary>For messages: the time as people in Addis Ababa read it, for example "1 Dec 2026, 14:00".</summary>
     public static string FormatLocal(DateTimeOffset value) =>
         value.UtcDateTime.Add(AddisOffset).ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture);
+
+    private static bool Fits(IReadOnlyList<AvailabilityWindow> windows, int startMinute, int endMinute) =>
+        windows.Any(window => window.StartMinute <= startMinute && endMinute <= window.EndMinute);
 }

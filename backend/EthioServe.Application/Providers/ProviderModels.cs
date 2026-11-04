@@ -49,6 +49,33 @@ public sealed record UpdateProviderProfileRequest(
 
 public sealed record SetAvailabilityRequest(bool IsAvailable);
 
+public sealed record AvailabilityWindowRequest(int StartMinute, int EndMinute);
+
+public sealed record WeeklyAvailabilityDayRequest(int DayOfWeek, IReadOnlyList<AvailabilityWindowRequest> Windows);
+
+public sealed record AvailabilityDateExceptionRequest(
+    DateOnly Date,
+    bool IsClosed,
+    IReadOnlyList<AvailabilityWindowRequest> Windows);
+
+public sealed record UpdateProviderAvailabilityRequest(
+    IReadOnlyList<WeeklyAvailabilityDayRequest> WeeklyHours,
+    IReadOnlyList<AvailabilityDateExceptionRequest> DateExceptions);
+
+public sealed record AvailabilityWindowDto(int StartMinute, int EndMinute);
+
+public sealed record WeeklyAvailabilityDayDto(int DayOfWeek, IReadOnlyList<AvailabilityWindowDto> Windows);
+
+public sealed record AvailabilityDateExceptionDto(
+    DateOnly Date,
+    bool IsClosed,
+    IReadOnlyList<AvailabilityWindowDto> Windows);
+
+public sealed record ProviderAvailabilityDto(
+    bool IsConfigured,
+    IReadOnlyList<WeeklyAvailabilityDayDto> WeeklyHours,
+    IReadOnlyList<AvailabilityDateExceptionDto> DateExceptions);
+
 public sealed record AddOfferRequest(Guid ServiceId, decimal Price, string? Description);
 
 public sealed record UpdateOfferRequest(decimal Price, string? Description, bool IsActive);
@@ -61,6 +88,13 @@ public interface IProviderSelfService
     Task<ProviderProfileDto> UpdateMyProfileAsync(UpdateProviderProfileRequest request, CancellationToken ct = default);
 
     Task<ProviderProfileDto> SetAvailabilityAsync(bool isAvailable, CancellationToken ct = default);
+
+    Task<ProviderAvailabilityDto> GetAvailabilityCalendarAsync(CancellationToken ct = default);
+
+    Task<ProviderAvailabilityDto> UpdateAvailabilityCalendarAsync(
+        UpdateProviderAvailabilityRequest request, CancellationToken ct = default);
+
+    Task ClearAvailabilityCalendarAsync(CancellationToken ct = default);
 
     Task<ProviderProfileDto> RequestVerificationAsync(CancellationToken ct = default);
 

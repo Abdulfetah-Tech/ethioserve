@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using EthioServe.Application.Abstractions;
+using EthioServe.Application.Appointments;
 using EthioServe.Application.Common;
 using EthioServe.Application.Common.Exceptions;
 using EthioServe.Domain.Common;
@@ -15,6 +16,7 @@ public sealed class ProviderSelfService(
     ICurrentUser currentUser,
     IAuditTrail audit,
     IValidator<UpdateProviderProfileRequest> profileValidator,
+    IValidator<UpdateProviderAvailabilityRequest> availabilityValidator,
     IValidator<AddOfferRequest> addOfferValidator,
     IValidator<UpdateOfferRequest> updateOfferValidator) : IProviderSelfService
 {
@@ -80,6 +82,68 @@ public sealed class ProviderSelfService(
         await db.SaveChangesAsync(ct);
 
         return await GetMyProfileAsync(ct);
+    }
+
+    public async Task<ProviderAvailabilityDto> GetAvailabilityCalendarAsync(CancellationToken ct = default)
+    {
+        var providerId = ProviderId;
+        var profile = await db.ProviderProfiles.AsNoTracking()
+            .FirstOrDefaultAsync(profile => profile.Id == providerId, ct)
+            ?? throw new NotFoundException("Provider profile not found.");
+
+        return profile.AvailabilitySchedule is { } schedule
+            ? ToAvailabilityDto(schedule)
+            : new ProviderAvailabilityDto(false, [], []);
+    }
+
+    public async Task<ProviderAvailabilityDto> UpdateAvailabilityCalendarAsync(
+        UpdateProviderAvailabilityRequest request, CancellationToken ct = default)
+    {
+        await availabilityValidator.ValidateAndThrowAsync(request, ct);
+
+        var providerId = ProviderId;
+
+        return await db.WithExclusiveLockAsync(ProviderScheduleLock.Key(providerId), async () =>
+        {
+            var profile = await FindProfileAsync(ct);
+            var before = profile.AvailabilitySchedule;
+            var schedule = new ProviderAvailabilitySchedule(
+                request.WeeklyHours.Select(day => new WeeklyAvailabilityDay(
+                    day.DayOfWeek,
+                    day.Windows.Select(window => new AvailabilityWindow(window.StartMinute, window.EndMinute)).ToArray()))
+                .ToArray(),
+                request.DateExceptions.Select(exception => new AvailabilityDateException(
+                    exception.Date,
+                    exception.IsClosed,
+                    exception.Windows.Select(window => new AvailabilityWindow(window.StartMinute, window.EndMinute)).ToArray()))
+                .ToArray());
+
+            profile.SetAvailabilitySchedule(schedule);
+            audit.Record("ProviderAvailabilityCalendarUpdated", nameof(ProviderProfile), profile.Id, before, schedule);
+            await db.SaveChangesAsync(ct);
+
+            return ToAvailabilityDto(schedule);
+        }, ct);
+    }
+
+    public async Task ClearAvailabilityCalendarAsync(CancellationToken ct = default)
+    {
+        var providerId = ProviderId;
+
+        await db.WithExclusiveLockAsync(ProviderScheduleLock.Key(providerId), async () =>
+        {
+            var profile = await FindProfileAsync(ct);
+            var before = profile.AvailabilitySchedule;
+            if (before is not null)
+            {
+                profile.SetAvailabilitySchedule(null);
+                audit.Record(
+                    "ProviderAvailabilityCalendarCleared", nameof(ProviderProfile), profile.Id, before, null);
+                await db.SaveChangesAsync(ct);
+            }
+
+            return true;
+        }, ct);
     }
 
     public async Task<ProviderProfileDto> RequestVerificationAsync(CancellationToken ct = default)
@@ -254,4 +318,16 @@ public sealed class ProviderSelfService(
             p.Longitude,
             p.IsAvailable,
             db.ProviderServices.Count(o => o.ProviderId == p.Id && o.IsActive)));
+
+    private static ProviderAvailabilityDto ToAvailabilityDto(ProviderAvailabilitySchedule schedule) => new(
+        true,
+        schedule.WeeklyHours.Select(day => new WeeklyAvailabilityDayDto(
+            day.DayOfWeek,
+            day.Windows.Select(window => new AvailabilityWindowDto(window.StartMinute, window.EndMinute)).ToArray()))
+        .ToArray(),
+        schedule.DateExceptions.Select(exception => new AvailabilityDateExceptionDto(
+            exception.Date,
+            exception.IsClosed,
+            exception.Windows.Select(window => new AvailabilityWindowDto(window.StartMinute, window.EndMinute)).ToArray()))
+        .ToArray());
 }

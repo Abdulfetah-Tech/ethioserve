@@ -3,11 +3,14 @@ using EthioServe.Domain.Enums;
 using EthioServe.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using System.Text.Json;
 
 namespace EthioServe.Infrastructure.Persistence.Configurations;
 
 public sealed class ProviderProfileConfiguration : IEntityTypeConfiguration<ProviderProfile>
 {
+    private static readonly JsonSerializerOptions AvailabilityJsonOptions = new(JsonSerializerDefaults.Web);
+
     public void Configure(EntityTypeBuilder<ProviderProfile> builder)
     {
         builder.ToTable("provider_profiles", t =>
@@ -30,6 +33,11 @@ public sealed class ProviderProfileConfiguration : IEntityTypeConfiguration<Prov
         builder.Property(p => p.Address).HasMaxLength(300).IsRequired();
         builder.Property(p => p.Latitude).HasPrecision(9, 6);
         builder.Property(p => p.Longitude).HasPrecision(9, 6);
+        builder.Property(p => p.AvailabilitySchedule)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                schedule => JsonSerializer.Serialize(schedule, AvailabilityJsonOptions),
+                json => JsonSerializer.Deserialize<ProviderAvailabilitySchedule>(json, AvailabilityJsonOptions)!);
 
         builder.HasOne<ApplicationUser>().WithOne().HasForeignKey<ProviderProfile>(p => p.UserId)
             .OnDelete(DeleteBehavior.Restrict);

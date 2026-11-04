@@ -5,6 +5,8 @@ import { durationText } from './quote-format';
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
+const ADDIS_OFFSET_MINUTES = 3 * 60;
+const ADDIS_TIME_ZONE = 'Africa/Addis_Ababa';
 
 /** These mirror the API, which still decides. */
 export const MIN_LEAD_MINUTES = 60;
@@ -68,22 +70,22 @@ export function hasAppointmentSection(status: RequestStatus): boolean {
 }
 
 export function timeZoneName(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return ADDIS_TIME_ZONE;
 }
 
-function dateText(date: Date, timeZone?: string): string {
-  const options: Intl.DateTimeFormatOptions = timeZone ? { timeZone } : {};
+function dateText(date: Date, timeZone: string = ADDIS_TIME_ZONE): string {
+  const options: Intl.DateTimeFormatOptions = { timeZone };
 
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', ...options });
 }
 
-function timeText(date: Date, timeZone?: string): string {
-  const options: Intl.DateTimeFormatOptions = timeZone ? { timeZone } : {};
+function timeText(date: Date, timeZone: string = ADDIS_TIME_ZONE): string {
+  const options: Intl.DateTimeFormatOptions = { timeZone };
 
   return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', ...options });
 }
 
-/** For example "1 Dec 2026, 14:00". The time zone is the device's unless one is given. */
+/** For example "1 Dec 2026, 14:00". Appointment times use Addis Ababa unless another zone is requested. */
 export function dateTimeText(iso: string, timeZone?: string): string {
   const date = new Date(iso);
 
@@ -114,26 +116,46 @@ function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-/** A moment as the value of a date-and-time input, in the device's time zone. */
+/** A moment as the value of a date-and-time input, in Addis Ababa time. */
 export function toLocalInput(iso: string): string {
-  const date = new Date(iso);
+  const date = new Date(Date.parse(iso) + ADDIS_OFFSET_MINUTES * MINUTE);
 
   if (Number.isNaN(date.getTime())) {
     return '';
   }
 
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
 /** The value of a date-and-time input as an exact moment (UTC), or null when it is empty or malformed. */
 export function fromLocalInput(value: string): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) {
     return null;
   }
 
-  const date = new Date(value); // a value without a zone is read as device time
+  const [, yearText, monthText, dayText, hourText, minuteText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const local = new Date(0);
+  local.setUTCFullYear(year, month - 1, day);
+  local.setUTCHours(hour, minute, 0, 0);
 
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  if (
+    year < 1 ||
+    local.getUTCFullYear() !== year ||
+    local.getUTCMonth() !== month - 1 ||
+    local.getUTCDate() !== day ||
+    local.getUTCHours() !== hour ||
+    local.getUTCMinutes() !== minute
+  ) {
+    return null;
+  }
+
+  return new Date(local.getTime() - ADDIS_OFFSET_MINUTES * MINUTE).toISOString();
 }
 
 /** The earliest value the picker should offer: one minute past the notice period, so rounding never lets a bad time in. */

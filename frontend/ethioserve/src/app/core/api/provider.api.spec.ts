@@ -46,6 +46,33 @@ describe('ProviderApi', () => {
     request.flush({});
   });
 
+  it('reads, updates and clears the availability calendar', () => {
+    const calendar = {
+      isConfigured: true,
+      weeklyHours: [{ dayOfWeek: 1, windows: [{ startMinute: 540, endMinute: 1020 }] }],
+      dateExceptions: [],
+    };
+
+    api.availabilityCalendar().subscribe((result) => expect(result.isConfigured).toBe(false));
+    httpMock.expectOne('/api/providers/me/availability-calendar').flush({
+      isConfigured: false,
+      weeklyHours: [],
+      dateExceptions: [],
+    });
+
+    const requestBody = { weeklyHours: calendar.weeklyHours, dateExceptions: calendar.dateExceptions };
+    api.updateAvailabilityCalendar(requestBody).subscribe();
+    const update = httpMock.expectOne('/api/providers/me/availability-calendar');
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body).toEqual(requestBody);
+    update.flush(calendar);
+
+    api.clearAvailabilityCalendar().subscribe();
+    const clear = httpMock.expectOne('/api/providers/me/availability-calendar');
+    expect(clear.request.method).toBe('DELETE');
+    clear.flush(null);
+  });
+
   it('requests verification without a body', () => {
     api.requestVerification().subscribe();
 

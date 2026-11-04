@@ -20,6 +20,9 @@ public sealed class ProviderSelfApiTests(ApiFactory factory)
         yield return new object[] { "GET", "/api/providers/me" };
         yield return new object[] { "PUT", "/api/providers/me" };
         yield return new object[] { "PUT", "/api/providers/me/availability" };
+        yield return new object[] { "GET", "/api/providers/me/availability-calendar" };
+        yield return new object[] { "PUT", "/api/providers/me/availability-calendar" };
+        yield return new object[] { "DELETE", "/api/providers/me/availability-calendar" };
         yield return new object[] { "POST", "/api/providers/me/verification-request" };
         yield return new object[] { "GET", "/api/providers/me/services" };
         yield return new object[] { "POST", "/api/providers/me/services" };
@@ -237,6 +240,98 @@ public sealed class ProviderSelfApiTests(ApiFactory factory)
 
         Assert.False(off.GetProperty("isAvailable").GetBoolean());
         Assert.True(on.GetProperty("isAvailable").GetBoolean());
+    }
+
+    [Fact]
+    public async Task A_provider_can_manage_their_weekly_hours_and_date_exceptions()
+    {
+        using var provider = await _session.RegisteredProviderAsync();
+        const string url = "/api/providers/me/availability-calendar";
+
+        var (initialStatus, initial) = await ApiJson.SendAsync(provider.Http, HttpMethod.Get, url);
+        Assert.Equal(HttpStatusCode.OK, initialStatus);
+        Assert.False(initial.GetProperty("isConfigured").GetBoolean());
+
+        var request = new
+        {
+            weeklyHours = new[]
+            {
+                new
+                {
+                    dayOfWeek = 1,
+                    windows = new[]
+                    {
+                        new { startMinute = 540, endMinute = 720 },
+                        new { startMinute = 780, endMinute = 1020 }
+                    }
+                }
+            },
+            dateExceptions = new object[]
+            {
+                new { date = new DateOnly(2027, 1, 1), isClosed = true, windows = Array.Empty<object>() },
+                new
+                {
+                    date = new DateOnly(2027, 1, 2),
+                    isClosed = false,
+                    windows = new[] { new { startMinute = 600, endMinute = 840 } }
+                }
+            }
+        };
+        var (saveStatus, saved) = await ApiJson.SendAsync(provider.Http, HttpMethod.Put, url, request);
+
+        Assert.Equal(HttpStatusCode.OK, saveStatus);
+        Assert.Equal(2, saved.GetProperty("weeklyHours")[0].GetProperty("windows").GetArrayLength());
+        Assert.Equal(2, saved.GetProperty("dateExceptions").GetArrayLength());
+
+        var (_, reloaded) = await ApiJson.SendAsync(provider.Http, HttpMethod.Get, url);
+        Assert.Equal(780, reloaded.GetProperty("weeklyHours")[0].GetProperty("windows")[1]
+            .GetProperty("startMinute").GetInt32());
+        Assert.True(reloaded.GetProperty("dateExceptions")[0].GetProperty("isClosed").GetBoolean());
+
+        var (clearStatus, _) = await ApiJson.SendAsync(provider.Http, HttpMethod.Delete, url);
+        var (_, cleared) = await ApiJson.SendAsync(provider.Http, HttpMethod.Get, url);
+
+        Assert.Equal(HttpStatusCode.NoContent, clearStatus);
+        Assert.False(cleared.GetProperty("isConfigured").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Invalid_overlapping_hours_and_closed_date_windows_are_rejected()
+    {
+        using var provider = await _session.RegisteredProviderAsync();
+        var (status, body) = await ApiJson.SendAsync(
+            provider.Http, HttpMethod.Put, "/api/providers/me/availability-calendar", new
+            {
+                weeklyHours = new[]
+                {
+                    new
+                    {
+                        dayOfWeek = 1,
+                        windows = new[]
+                        {
+                            new { startMinute = 540, endMinute = 720 },
+                            new { startMinute = 700, endMinute = 800 }
+                        }
+                    }
+                },
+                dateExceptions = new[]
+                {
+                    new
+                    {
+                        date = new DateOnly(2027, 1, 1),
+                        isClosed = true,
+                        windows = new[] { new { startMinute = 540, endMinute = 600 } }
+                    }
+                }
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Contains(
+            body.GetProperty("errors").EnumerateObject(),
+            error => error.Name.StartsWith("weeklyHours", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            body.GetProperty("errors").EnumerateObject(),
+            error => error.Name.StartsWith("dateExceptions", StringComparison.OrdinalIgnoreCase));
     }
 
     // ------------------------------------------------------------- offers

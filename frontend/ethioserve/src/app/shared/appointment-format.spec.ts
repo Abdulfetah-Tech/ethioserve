@@ -18,6 +18,7 @@ import {
   startProblem,
   startRule,
   summarizeJob,
+  timeZoneName,
   toLocalInput,
 } from './appointment-format';
 
@@ -111,6 +112,12 @@ describe('local input conversion', () => {
     const iso = '2026-12-01T11:30:00.000Z';
 
     expect(fromLocalInput(toLocalInput(iso))).toBe(iso);
+  });
+
+  it('interprets appointment form values in Addis Ababa regardless of device time zone', () => {
+    expect(timeZoneName()).toBe('Africa/Addis_Ababa');
+    expect(toLocalInput('2026-12-01T11:30:00Z')).toBe('2026-12-01T14:30');
+    expect(fromLocalInput('2026-12-01T14:30')).toBe('2026-12-01T11:30:00.000Z');
   });
 
   it('refuses anything that is not a date and time', () => {

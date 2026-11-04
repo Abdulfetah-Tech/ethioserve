@@ -1,4 +1,5 @@
 using EthioServe.Application.Appointments;
+using EthioServe.Domain.Entities;
 
 namespace EthioServe.Tests.Unit;
 
@@ -75,5 +76,36 @@ public sealed class AppointmentRulesTests
     {
         Assert.Equal("1 Dec 2026, 14:00", AppointmentRules.FormatLocal(new DateTimeOffset(2026, 12, 1, 11, 0, 0, TimeSpan.Zero)));
         Assert.Equal("2 Dec 2026, 00:30", AppointmentRules.FormatLocal(new DateTimeOffset(2026, 12, 1, 21, 30, 0, TimeSpan.Zero)));
+    }
+
+    [Fact]
+    public void A_weekly_window_must_contain_the_entire_appointment_in_addis_time()
+    {
+        var schedule = new ProviderAvailabilitySchedule(
+            [new WeeklyAvailabilityDay(2, [new AvailabilityWindow(9 * 60, 17 * 60)])],
+            []);
+        var start = new DateTimeOffset(2026, 12, 1, 10, 0, 0, TimeSpan.FromHours(3));
+
+        Assert.True(AppointmentRules.IsWithinAvailability(schedule, start, start.AddHours(2)));
+        Assert.False(AppointmentRules.IsWithinAvailability(schedule, start, start.AddHours(8)));
+        Assert.False(AppointmentRules.IsWithinAvailability(schedule, start.AddHours(-2), start));
+    }
+
+    [Fact]
+    public void A_date_exception_overrides_weekly_hours_and_an_unconfigured_schedule_is_unrestricted()
+    {
+        var date = new DateOnly(2026, 12, 1);
+        var weekly = new WeeklyAvailabilityDay(2, [new AvailabilityWindow(9 * 60, 17 * 60)]);
+        var closed = new ProviderAvailabilitySchedule(
+            [weekly],
+            [new AvailabilityDateException(date, true, [])]);
+        var open = new ProviderAvailabilitySchedule(
+            [weekly],
+            [new AvailabilityDateException(date, false, [new AvailabilityWindow(18 * 60, 20 * 60)])]);
+        var afterHours = new DateTimeOffset(2026, 12, 1, 18, 30, 0, TimeSpan.FromHours(3));
+
+        Assert.False(AppointmentRules.IsWithinAvailability(closed, afterHours, afterHours.AddMinutes(30)));
+        Assert.True(AppointmentRules.IsWithinAvailability(open, afterHours, afterHours.AddMinutes(30)));
+        Assert.True(AppointmentRules.IsWithinAvailability(null, afterHours, afterHours.AddMinutes(30)));
     }
 }

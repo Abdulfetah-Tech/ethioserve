@@ -11,11 +11,12 @@ import { PHONE_PATTERN } from '../../core/auth/validators';
 import { City, Region, SubCity } from '../../core/models/marketplace.models';
 import { MyProfile, UpdateProfileRequest } from '../../core/models/provider.models';
 import { ProviderNav } from './provider-nav';
+import { ProviderAvailability } from './provider-availability';
 import { MIN_DESCRIPTION_LENGTH } from './verification';
 
 @Component({
   selector: 'app-provider-profile',
-  imports: [ReactiveFormsModule, ProviderNav],
+  imports: [ReactiveFormsModule, ProviderNav, ProviderAvailability],
   template: `
     <div class="stack">
       <header>
@@ -176,6 +177,8 @@ import { MIN_DESCRIPTION_LENGTH } from './verification';
             {{ saving() ? 'Saving...' : 'Save profile' }}
           </button>
         </form>
+
+        <app-provider-availability />
       }
     </div>
   `,

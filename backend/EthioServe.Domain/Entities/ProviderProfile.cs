@@ -68,7 +68,9 @@ public sealed class ProviderProfile : AuditableEntity
 
     public bool IsAvailable { get; private set; }
 
-        public void UpdateDetails(
+    public ProviderAvailabilitySchedule? AvailabilitySchedule { get; private set; }
+
+    public void UpdateDetails(
         string businessName, string description, string phoneNumber, int yearsOfExperience,
         int regionId, int cityId, int? subCityId, string address, decimal? latitude, decimal? longitude)
     {
@@ -87,7 +89,9 @@ public sealed class ProviderProfile : AuditableEntity
         Longitude = longitude;
     }
 
-        private static void ValidateCoordinates(decimal? latitude, decimal? longitude)
+    public void SetAvailabilitySchedule(ProviderAvailabilitySchedule? schedule) => AvailabilitySchedule = schedule;
+
+    private static void ValidateCoordinates(decimal? latitude, decimal? longitude)
     {
         if (latitude.HasValue != longitude.HasValue)
         {
@@ -104,6 +108,7 @@ public sealed class ProviderProfile : AuditableEntity
             throw new DomainException("Longitude must be between -180 and 180.");
         }
     }
+
     public void SetAvailability(bool isAvailable) => IsAvailable = isAvailable;
     /// <summary>
     /// Replaces the denormalized rating summary. The review workflow (Phase 9) recalculates it after every review

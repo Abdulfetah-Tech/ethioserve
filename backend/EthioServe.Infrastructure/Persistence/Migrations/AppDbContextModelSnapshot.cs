@@ -17,7 +17,7 @@ namespace EthioServe.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -640,6 +640,10 @@ namespace EthioServe.Infrastructure.Persistence.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
                         .HasColumnName("address");
+
+                    b.Property<string>("AvailabilitySchedule")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("availability_schedule");
 
                     b.Property<decimal>("AverageRating")
                         .HasPrecision(3, 2)

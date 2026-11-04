@@ -112,6 +112,60 @@ public sealed class AppointmentApiTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task The_provider_calendar_blocks_closed_dates_and_allows_configured_exception_hours()
+    {
+        using var world = await _jobs.NewWorldAsync();
+        var requestId = await _jobs.AcceptedRequestAsync(world);
+        var nextDayAtTen = DateTime.SpecifyKind(
+            DateTime.UtcNow.AddHours(3).Date.AddDays(1).AddHours(10), DateTimeKind.Unspecified);
+        var start = new DateTimeOffset(nextDayAtTen, TimeSpan.FromHours(3));
+        var localDate = DateOnly.FromDateTime(nextDayAtTen);
+        const string calendarUrl = "/api/providers/me/availability-calendar";
+
+        var (_, closed) = await ApiJson.SendAsync(world.Provider.Http, HttpMethod.Put, calendarUrl, new
+        {
+            weeklyHours = Array.Empty<object>(),
+            dateExceptions = new[]
+            {
+                new { date = localDate, isClosed = true, windows = Array.Empty<object>() }
+            }
+        });
+        Assert.Equal(0, closed.GetProperty("weeklyHours").GetArrayLength());
+
+        var (closedStatus, closedBody) = await AppointmentScenario.ScheduleRawAsync(
+            world.Provider.Http, requestId, AppointmentScenario.Body(start));
+        Assert.Equal(HttpStatusCode.BadRequest, closedStatus);
+        Assert.True(HasField(closedBody, "startAt"));
+
+        var (openedStatus, _) = await ApiJson.SendAsync(world.Provider.Http, HttpMethod.Put, calendarUrl, new
+        {
+            weeklyHours = Array.Empty<object>(),
+            dateExceptions = new[]
+            {
+                new
+                {
+                    date = localDate,
+                    isClosed = false,
+                    windows = new[] { new { startMinute = 9 * 60, endMinute = 13 * 60 } }
+                }
+            }
+        });
+        Assert.Equal(HttpStatusCode.OK, openedStatus);
+        Assert.Equal(HttpStatusCode.Created,
+            (await AppointmentScenario.ScheduleRawAsync(
+                world.Provider.Http, requestId, AppointmentScenario.Body(start))).Status);
+
+        var outsideRequestId = await _jobs.AcceptedRequestAsync(world);
+        var outsideHours = new DateTimeOffset(
+            DateTime.SpecifyKind(nextDayAtTen.Date.AddHours(14), DateTimeKind.Unspecified),
+            TimeSpan.FromHours(3));
+        var (outsideStatus, _) = await AppointmentScenario.ScheduleRawAsync(
+            world.Provider.Http, outsideRequestId, AppointmentScenario.Body(outsideHours));
+
+        Assert.Equal(HttpStatusCode.BadRequest, outsideStatus);
+    }
+
+    [Fact]
     public async Task A_time_sent_with_a_local_offset_is_stored_in_utc_to_the_minute()
     {
         using var world = await _jobs.NewWorldAsync();
