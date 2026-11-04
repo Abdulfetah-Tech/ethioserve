@@ -15,7 +15,7 @@ namespace EthioServe.API.Controllers;
 [Route("api/auth")]
 [EnableRateLimiting(RateLimitPolicies.Auth)]
 [RequestSizeLimit(16 * 1024)]
-public sealed class AuthController(IAuthService auth, ICurrentUser currentUser) : ControllerBase
+public sealed class AuthController(IAuthService auth, ICurrentUser currentUser, IEmailService email) : ControllerBase
 {
     private const string CsrfHeader = "X-Requested-With";
 
@@ -101,11 +101,27 @@ public sealed class AuthController(IAuthService auth, ICurrentUser currentUser) 
 
         return NoContent();
     }
+
+    [HttpGet("capabilities")]
+    [AllowAnonymous]
+    [ProducesResponseType<AuthCapabilitiesResponse>(StatusCodes.Status200OK)]
+    public ActionResult<AuthCapabilitiesResponse> Capabilities() =>
+        Ok(new AuthCapabilitiesResponse(email.IsAvailable));
+
     [HttpPost("forgot-password")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
     {
+        if (!email.IsAvailable)
+        {
+            return Problem(
+                detail: "Password recovery is unavailable because email delivery is not configured.",
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Password recovery unavailable");
+        }
+
         await auth.RequestPasswordResetAsync(request, GetClient(), ct);
 
         // Always the same answer, whether or not the email is registered.
@@ -115,8 +131,17 @@ public sealed class AuthController(IAuthService auth, ICurrentUser currentUser) 
     [HttpPost("reset-password")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken ct)
     {
+        if (!email.IsAvailable)
+        {
+            return Problem(
+                detail: "Password recovery is unavailable because email delivery is not configured.",
+                statusCode: StatusCodes.Status503ServiceUnavailable,
+                title: "Password recovery unavailable");
+        }
+
         await auth.ResetPasswordAsync(request, ct);
         RefreshTokenCookie.Clear(Response);
 

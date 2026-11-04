@@ -41,13 +41,15 @@ The rotation is claimed with an atomic `UPDATE ... WHERE revoked_at IS NULL`, so
 ## Password reset
 Link validity is 60 minutes. The token is random, URL-safe and stored only as a hash.
 A new request invalidates older links. Resetting also clears lockout and signs the user out everywhere.
-Email is sent through `IEmailService`. The development implementation only logs; a real provider is added in Phase 7.
+Email is sent through `IEmailService`. The current development implementation only logs; a real provider is not configured.
+Password recovery reports itself unavailable and returns HTTP 503 until email delivery is configured. In Development only,
+`App:LogEmailBodies=true` enables log-based testing of reset links; this setting is rejected in other environments.
 
 ## Known limitations (planned)
 - No email verification or multi-factor authentication yet.
 - The forgot-password response time differs slightly when the account exists (the email is sent inline).
   Phase 7 moves email sending to a background queue.
-- Refresh and reset tokens live in PostgreSQL. A cleanup job for expired rows arrives with the background jobs.
+- Refresh and reset tokens live in PostgreSQL and currently have no automated cleanup job.
 - The development admin comes from local config (`Seed:AdminEmail`, `Seed:AdminPassword`; defaults in `appsettings.Development.json` are `admin@ethioserve.local` / `Admin12345!`). Production admins need a deliberate step.
 
 ## Configuration

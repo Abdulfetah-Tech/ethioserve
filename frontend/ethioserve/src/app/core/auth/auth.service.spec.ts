@@ -42,6 +42,18 @@ describe('AuthService', () => {
     expect(sessionStorage.length).toBe(0);
   });
 
+  it('loads public authentication capabilities', () => {
+    let enabled: boolean | undefined;
+
+    auth.getCapabilities().subscribe((capabilities) => (enabled = capabilities.passwordResetEnabled));
+
+    const request = httpMock.expectOne('/api/auth/capabilities');
+    expect(request.request.method).toBe('GET');
+    request.flush({ passwordResetEnabled: false });
+
+    expect(enabled).toBe(false);
+  });
+
   it('shares one request between concurrent refresh calls', () => {
     const tokens: string[] = [];
 

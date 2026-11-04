@@ -11,7 +11,16 @@ import { AuthService } from '../../core/auth/auth.service';
     <section class="card narrow">
       <h1>Forgot your password?</h1>
 
-      @if (sent()) {
+      @if (loadingCapabilities()) {
+        <p class="muted" role="status">Checking password recovery availability...</p>
+      } @else if (capabilityError(); as message) {
+        <p class="alert alert-error" role="alert">{{ message }}</p>
+        <button type="button" class="btn btn-primary" (click)="loadCapabilities()">Retry</button>
+        <p class="form-links"><a routerLink="/login">Back to sign in</a></p>
+      } @else if (!passwordResetEnabled()) {
+        <p class="muted" role="status">Password recovery is unavailable because email delivery is not configured.</p>
+        <p class="form-links"><a routerLink="/login">Back to sign in</a></p>
+      } @else if (sent()) {
         <p class="alert alert-success" role="status">
           If an account with that email exists, we have sent a link to reset your password. The link is valid for 60
           minutes.
@@ -53,9 +62,32 @@ export class ForgotPassword {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
 
+  protected readonly loadingCapabilities = signal(true);
+  protected readonly passwordResetEnabled = signal(false);
+  protected readonly capabilityError = signal<string | null>(null);
   protected readonly submitting = signal(false);
   protected readonly sent = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
+
+  constructor() {
+    this.loadCapabilities();
+  }
+
+  protected loadCapabilities(): void {
+    this.loadingCapabilities.set(true);
+    this.capabilityError.set(null);
+
+    this.auth.getCapabilities().subscribe({
+      next: (capabilities) => {
+        this.passwordResetEnabled.set(capabilities.passwordResetEnabled);
+        this.loadingCapabilities.set(false);
+      },
+      error: (error: unknown) => {
+        this.capabilityError.set(toApiError(error).message);
+        this.loadingCapabilities.set(false);
+      },
+    });
+  }
 
   protected readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],

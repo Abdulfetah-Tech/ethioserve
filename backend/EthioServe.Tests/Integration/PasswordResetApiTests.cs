@@ -37,6 +37,34 @@ public sealed class PasswordResetApiTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Password_reset_is_reported_unavailable_and_rejected_without_email_delivery()
+    {
+        using var client = NewClient();
+        var emails = factory.Services.GetRequiredService<TestEmailService>();
+        emails.IsAvailable = false;
+
+        try
+        {
+            using var capabilities = await client.GetAsync("/api/auth/capabilities");
+            Assert.Equal(HttpStatusCode.OK, capabilities.StatusCode);
+            Assert.False((await capabilities.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("passwordResetEnabled").GetBoolean());
+
+            using var forgot = await client.PostAsJsonAsync("/api/auth/forgot-password", new { email = NewEmail() });
+            using var reset = await client.PostAsJsonAsync(
+                "/api/auth/reset-password",
+                new { token = "not-a-real-token", newPassword = NewPassword });
+
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, forgot.StatusCode);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, reset.StatusCode);
+        }
+        finally
+        {
+            emails.IsAvailable = true;
+        }
+    }
+
+    [Fact]
     public async Task Forgot_password_answers_identically_for_known_and_unknown_emails()
     {
         using var client = NewClient();

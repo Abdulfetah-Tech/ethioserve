@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, finalize, firstValueFrom, map, of, shareReplay, tap } from 'rxjs';
 import {
+  AuthCapabilities,
   AuthResponse,
   CurrentUser,
   ForgotPasswordRequest,
@@ -48,6 +49,10 @@ export class AuthService {
     return this.http
       .post<AuthResponse>('/api/auth/register/provider', request)
       .pipe(map((r) => this.accept(r)));
+  }
+
+  getCapabilities(): Observable<AuthCapabilities> {
+    return this.http.get<AuthCapabilities>('/api/auth/capabilities');
   }
 
   forgotPassword(request: ForgotPasswordRequest): Observable<unknown> {

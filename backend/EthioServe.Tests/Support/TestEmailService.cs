@@ -9,6 +9,8 @@ public sealed class TestEmailService : IEmailService
 {
     private readonly ConcurrentQueue<EmailMessage> _sent = new();
 
+    public bool IsAvailable { get; set; } = true;
+
     public Task SendAsync(EmailMessage message, CancellationToken ct = default)
     {
         _sent.Enqueue(message);

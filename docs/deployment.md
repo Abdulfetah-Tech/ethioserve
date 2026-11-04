@@ -31,7 +31,7 @@ The mock payment gateway is enabled by default only in Development and Testing. 
 
 ## Production preflight and rollout
 
-Before deploying, configure the API task with `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__Default` and `Jwt__SigningKey` from Secrets Manager, `Database__ApplyMigrationsOnStartup=false`, the public frontend origin in `Cors__AllowedOrigins__0`, the public frontend URL in `App__FrontendBaseUrl`, and `Storage__RootPath` set to the EFS mount path. Do not configure `Seed__AdminEmail`, `Seed__AdminPassword`, or `Seed__DemoPassword`; provision administrators separately. The mock payment gateway remains disabled in Production.
+Before deploying, configure the API task with `ASPNETCORE_ENVIRONMENT=Production`, `ConnectionStrings__Default` and `Jwt__SigningKey` from Secrets Manager, `Database__ApplyMigrationsOnStartup=false`, the public frontend origin in `Cors__AllowedOrigins__0`, the public frontend URL in `App__FrontendBaseUrl`, and `Storage__RootPath` set to the EFS mount path. Do not configure `Seed__AdminEmail`, `Seed__AdminPassword`, `Seed__DemoPassword`, or `App__LogEmailBodies`; provision administrators separately. Until a real email provider is configured, password recovery is explicitly unavailable. The mock payment gateway remains disabled in Production.
 
 For each release:
 

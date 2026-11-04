@@ -44,6 +44,10 @@ export interface ResetPasswordRequest {
   newPassword: string;
 }
 
+export interface AuthCapabilities {
+  passwordResetEnabled: boolean;
+}
+
 /** Must match the role names the API puts in the token. */
 export const Roles = {
   Admin: 'Admin',

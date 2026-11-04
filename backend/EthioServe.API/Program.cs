@@ -22,6 +22,11 @@ using Serilog;
 using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
+if (!builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("App:LogEmailBodies"))
+{
+    throw new InvalidOperationException("App:LogEmailBodies can only be enabled in Development.");
+}
+
 // Logging
 builder.Host.UseSerilog((context, services, loggerConfiguration) => loggerConfiguration
     .ReadFrom.Configuration(context.Configuration)

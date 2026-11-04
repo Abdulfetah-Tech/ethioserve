@@ -8,6 +8,8 @@ namespace EthioServe.Infrastructure.Identity;
 public sealed class DevelopmentEmailService(
     ILogger<DevelopmentEmailService> logger, IOptions<AppOptions> options) : IEmailService
 {
+    public bool IsAvailable => options.Value.LogEmailBodies;
+
     public Task SendAsync(EmailMessage message, CancellationToken ct = default)
     {
         if (options.Value.LogEmailBodies)
